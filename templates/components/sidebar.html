@@ -3,19 +3,28 @@
 <aside class="tos-sidebar" id="tosSidebar">
     <div class="d-flex flex-column">
         {# 1. Logo & Terminal Brand Header #}
-        <a href="{% if is_admin_role %}{% url 'admin_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
-           class="tos-sidebar-brand text-decoration-none" 
-           title="{% if is_admin_role %}Ke Admin Dashboard{% else %}Ke Dashboard Overview{% endif %}">
-            {% include 'components/logo.html' with logo_extra_class="me-1" %}
-            <div class="d-flex flex-column overflow-hidden text-start">
-                <span class="font-label-caps text-label-caps text-primary-container-label uppercase truncate" style="color: var(--color-on-primary-container); letter-spacing: 0.08em;">
-                    Port-Gate TOS
-                </span>
-                <span class="font-headline-sm text-body-xs font-bold text-white truncate" style="line-height: 1.2;">
-                    DERMAGA UTARA
-                </span>
-            </div>
-        </a>
+        <div class="d-flex align-items-center justify-content-between border-bottom border-primary-container" style="background-color: var(--color-primary);">
+            <a href="{% if is_admin_role %}{% url 'admin_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
+               class="tos-sidebar-brand text-decoration-none flex-grow-1 border-0" 
+               title="{% if is_admin_role %}Ke Admin Dashboard{% else %}Ke Dashboard Overview{% endif %}">
+                {% include 'components/logo.html' with logo_extra_class="me-1" %}
+                <div class="d-flex flex-column overflow-hidden text-start">
+                    <span class="font-label-caps text-label-caps text-primary-container-label uppercase truncate" style="color: var(--color-on-primary-container); letter-spacing: 0.08em;">
+                        Port-Gate TOS
+                    </span>
+                    <span class="font-headline-sm text-body-xs font-bold text-white truncate" style="line-height: 1.2;">
+                        DERMAGA UTARA
+                    </span>
+                </div>
+            </a>
+            <button type="button" 
+                    class="tos-sidebar-close-btn d-lg-none" 
+                    onclick="toggleMobileSidebar(false);" 
+                    aria-label="Tutup Menu Navigasi"
+                    title="Tutup Menu">
+                <span class="material-symbols-outlined" style="font-size: 20px;">close</span>
+            </button>
+        </div>
 
         {# 2. Status Banner (Admin Control vs Operator Booth) #}
         {% if is_admin_role %}

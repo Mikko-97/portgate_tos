@@ -1,14 +1,24 @@
 {# Header Telemetri Tetap (Fixed Top) - Source of Truth: Header.tsx #}
 <header class="tos-header" id="tosHeader">
     {# Left Telemetry Info #}
-    <div class="d-flex align-items-center gap-3 overflow-hidden">
+    <div class="d-flex align-items-center gap-2 overflow-hidden">
+        {# Mobile Navigation Toggle (<= 991.98px) #}
+        <button type="button" 
+                class="tos-btn-header-menu d-lg-none" 
+                id="btnToggleSidebar"
+                onclick="toggleMobileSidebar();" 
+                aria-label="Buka Menu Navigasi"
+                title="Menu Navigasi">
+            <span class="material-symbols-outlined" style="font-size: 20px;">menu</span>
+        </button>
+
         <div class="tos-telemetry-pill d-flex align-items-center gap-1 font-code-sm text-code-sm" id="tosLinkChip">
             <span class="material-symbols-outlined text-secondary" id="tosSyncIcon" style="font-size: 16px;">
                 sync_alt
             </span>
             <span class="fw-semibold">TOS LINK: NORMAL</span>
-            <span class="text-secondary opacity-50">|</span>
-            <span class="text-body-secondary font-monospace" style="font-size: 11px;">14ms</span>
+            <span class="text-secondary opacity-50 d-none d-sm-inline">|</span>
+            <span class="text-body-secondary font-monospace d-none d-sm-inline" style="font-size: 11px;">14ms</span>
         </div>
 
         <div class="d-none d-xl-flex align-items-center gap-1 font-label-caps text-label-caps text-secondary text-uppercase">

@@ -69,7 +69,13 @@
 }
 
 /* Base Document Reset */
-html, body {
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+body {
   margin: 0;
   padding: 0;
   font-family: var(--font-ui);
@@ -79,10 +85,7 @@ html, body {
   line-height: 1.45;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-}
-
-body {
-  overscroll-behavior: none;
+  position: relative;
 }
 
 /* Material Symbols Outlined Ligature Support */
@@ -348,6 +351,58 @@ body {
   transition: background-color 0.15s ease;
 }
 
+.tos-btn-header-menu {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  background-color: var(--color-surface-container);
+  color: var(--color-on-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-sharp);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tos-btn-header-menu:hover {
+  background-color: var(--color-surface-container-high);
+}
+
+.tos-sidebar-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-on-primary-container);
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.tos-sidebar-close-btn:hover {
+  color: #ffffff;
+}
+
+.tos-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(4, 21, 52, 0.65);
+  backdrop-filter: blur(2px);
+  z-index: 1045;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.tos-sidebar-backdrop.show {
+  display: block;
+  opacity: 1;
+}
+
 .tos-btn-header-sync:hover {
   background-color: var(--color-surface-container-high);
 }
@@ -430,22 +485,35 @@ body {
   flex: 1;
   padding: 16px;
   padding-bottom: 40px;
+  box-sizing: border-box;
 }
 
 /* Small screen adjustments */
 @media (max-width: 991.98px) {
   .tos-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    max-width: 80vw; /* Navigation drawer tidak memenuhi layar */
+    z-index: 1055;
     transform: translateX(-100%);
-    transition: transform 0.25s ease-in-out;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.45);
   }
   .tos-sidebar.show {
     transform: translateX(0);
   }
   .tos-header {
     left: 0;
+    padding: 0 12px;
   }
   .tos-main-viewport {
     margin-left: 0;
+  }
+  body.tos-sidebar-open {
+    overflow: hidden;
   }
 }
 
@@ -950,6 +1018,112 @@ body {
 .max-w-\[75\%\] { max-width: 75% !important; }
 .max-w-\[80\%\] { max-width: 80% !important; }
 .leading-none { line-height: 1 !important; }
+
+/* ==============================================================================
+   RESPONSIVE TABLES & CONTAINERS
+   ============================================================================== */
+.table-responsive,
+.overflow-x-auto {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==============================================================================
+   MOBILE & TABLET BREAKPOINTS (<= 768px & <= 480px)
+   ============================================================================== */
+@media (max-width: 768px) {
+  :root {
+    --spacing-space-md: 0.5rem;
+    --spacing-space-lg: 0.75rem;
+    --spacing-space-xl: 1rem;
+  }
+
+  .tos-viewport-content {
+    padding: 10px;
+    padding-bottom: 32px;
+  }
+
+  .text-headline-xl {
+    font-size: 20px !important;
+    line-height: 26px !important;
+  }
+
+  .text-headline-lg {
+    font-size: 16px !important;
+    line-height: 22px !important;
+  }
+
+  /* Wrap button/action bars cleanly with spacing */
+  .tos-gate-in-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .tos-gate-in-actions > * {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --spacing-space-sm: 0.25rem;
+    --spacing-space-md: 0.375rem;
+    --spacing-space-lg: 0.5rem;
+    --spacing-space-xl: 0.625rem;
+  }
+
+  .tos-header {
+    padding: 0 8px;
+  }
+
+  .tos-telemetry-pill {
+    padding: 2px 6px;
+    font-size: 10px !important;
+  }
+
+  .tos-viewport-content {
+    padding: 8px;
+    padding-bottom: 24px;
+  }
+
+  .text-headline-xl {
+    font-size: 18px !important;
+    line-height: 22px !important;
+  }
+
+  .text-headline-lg {
+    font-size: 14px !important;
+    line-height: 18px !important;
+  }
+
+  .tos-modal-box {
+    padding: 12px;
+    max-width: calc(100vw - 20px);
+  }
+
+  /* Action bar buttons stack full-width for comfortable touch targets */
+  .tos-gate-in-actions > * {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+
+  /* Prevent inputs or search boxes with fixed min-width from causing horizontal scroll */
+  .min-w-\[240px\],
+  .min-w-\[260px\] {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Compact KPI cards padding on small mobile */
+  .grid-cols-2 > div,
+  .grid-cols-2 > a {
+    min-width: 0;
+  }
+}
 
 
 

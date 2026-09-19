@@ -24,6 +24,8 @@
 <body class="bg-background text-on-surface antialiased">
     {# 1. Fixed Left Navigation Sidebar (Stitch UI) #}
     {% include 'components/sidebar.html' %}
+    {# Mobile Navigation Backdrop #}
+    <div class="tos-sidebar-backdrop" id="tosSidebarBackdrop" onclick="toggleMobileSidebar(false);"></div>
 
     {# 2. Fixed Top Header (Stitch UI) #}
     {% include 'components/header.html' %}
@@ -251,7 +253,43 @@
         } else if (e.key === 'Escape') {
             closePAModal();
             closeIncidentModal();
+            toggleMobileSidebar(false);
         }
+    });
+
+    // 5. Mobile Sidebar Drawer Controller
+    function toggleMobileSidebar(forceState) {
+        const sidebar = document.getElementById('tosSidebar');
+        const backdrop = document.getElementById('tosSidebarBackdrop');
+        if (!sidebar) return;
+        const isCurrentlyOpen = sidebar.classList.contains('show');
+        const shouldOpen = typeof forceState === 'boolean' ? forceState : !isCurrentlyOpen;
+        if (shouldOpen) {
+            sidebar.classList.add('show');
+            if (backdrop) backdrop.classList.add('show');
+            document.body.classList.add('tos-sidebar-open');
+        } else {
+            sidebar.classList.remove('show');
+            if (backdrop) backdrop.classList.remove('show');
+            document.body.classList.remove('tos-sidebar-open');
+        }
+    }
+
+    // Auto-close mobile drawer when navigation links are clicked or screen resized to desktop
+    document.addEventListener('DOMContentLoaded', function() {
+        const links = document.querySelectorAll('#tosSidebar a');
+        links.forEach(function(link) {
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 992) {
+                    toggleMobileSidebar(false);
+                }
+            });
+        });
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 992) {
+                toggleMobileSidebar(false);
+            }
+        });
     });
     </script>
 
