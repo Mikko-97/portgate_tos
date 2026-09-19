@@ -1,0 +1,782 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Master Data Truk &amp; CMS Terdaftar — Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. SUB-HEADER BREADCRUMB & ACTION BAR (Stitch UI: TruckMasterView.tsx) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Master Data Truk &amp; CMS Terdaftar
+        </span>
+        <span class="inline-flex items-center px-2 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          {{ total_trucks|default:0 }} TRUK TERDAFTAR
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Database armada pengangkut peti kemas yang memiliki izin operasi dan RFID aktif di Terminal Koja.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Tombol Registrasi Truk Baru -->
+      <button
+        type="button"
+        onclick="openAddModal();"
+        class="h-9 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold cursor-pointer rounded transition-colors"
+      >
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        <span>+ Registrasi Truk Baru</span>
+      </button>
+    </div>
+  </div>
+
+  {% include 'masterdata/_tabs.html' %}
+
+  <!-- 2. KPI / OPERATIONAL STATS CARDS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 px-space-md mb-4">
+    <!-- Card 1: Total Armada -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>Total Armada</span>
+        <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-surface font-code-lg">{{ total_trucks }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Terdata di database TOS</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Armada Aktif -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-secondary text-label-caps font-label-caps uppercase">
+        <span>Izin Aktif</span>
+        <span class="material-symbols-outlined text-[18px] text-secondary">verified</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-secondary font-code-lg">{{ active_trucks }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Dapat melintas Gate In</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Terpasang RFID -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-primary text-label-caps font-label-caps uppercase">
+        <span>RFID CMS Aktif</span>
+        <span class="material-symbols-outlined text-[18px] text-primary">contactless</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-primary font-code-lg">{{ rfid_tagged_trucks }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Auto-deteksi reader gate</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Non-Aktif / Hold -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-on-tertiary-container text-label-caps font-label-caps uppercase">
+        <span>Hold / Non-Aktif</span>
+        <span class="material-symbols-outlined text-[18px] text-on-tertiary-container">block</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-tertiary-container font-code-lg">{{ inactive_trucks }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Izin operasi ditangguhkan</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-space-md flex flex-col gap-space-md">
+    <!-- 3. SEARCH & MULTI-CRITERIA FILTER TOOLSTRIP -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3">
+      <form method="GET" action="{% url 'truck_master' %}" class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 m-0">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <!-- Quick Search -->
+          <div class="relative flex-1 min-w-[240px] max-w-md">
+            <span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-outline">search</span>
+            <input
+              name="search"
+              value="{{ search_query }}"
+              class="w-full h-8 pl-8 pr-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+              placeholder="Cari No. Polisi, Pengemudi, atau Ekspedisi..."
+              type="text"
+              id="truckSearchInput"
+            />
+          </div>
+
+          <!-- Filter Status Izin -->
+          <select
+            name="status"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Status Izin</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Status: Aktif</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Status: Non-Aktif</option>
+          </select>
+
+          <!-- Filter Konfigurasi Truk -->
+          <select
+            name="config"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Konfigurasi Sasis</option>
+            {% for code, label in config_choices %}
+              <option value="{{ code }}" {% if config_filter == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Ekspedisi -->
+          <select
+            name="expedition"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded max-w-[200px]"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Ekspedisi</option>
+            {% for exp in expeditions %}
+              <option value="{{ exp.pk }}" {% if expedition_filter == exp.pk|stringformat:"s" %}selected{% endif %}>{{ exp.nama_perusahaan }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Tombol Cari & Reset -->
+          <button
+            type="submit"
+            class="h-8 px-3 bg-secondary text-on-secondary hover:bg-primary font-code-sm text-code-sm font-semibold rounded transition-colors cursor-pointer border-0"
+          >
+            Filter
+          </button>
+          {% if search_query or status_filter or config_filter or expedition_filter %}
+            <a
+              href="{% url 'truck_master' %}"
+              class="h-8 px-2.5 bg-surface-container text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 rounded text-decoration-none"
+              title="Reset Semua Filter"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+              <span>Reset</span>
+            </a>
+          {% endif %}
+        </div>
+
+        <!-- Result Counter -->
+        <div class="font-code-sm text-body-xs text-outline text-right">
+          Menampilkan <span class="font-bold text-on-surface">{{ filtered_count }}</span> armada
+          {% if page_obj.paginator.num_pages > 1 %}
+            (Hal. {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }})
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. DENSE OPERATIONAL TRUCK TABLE (Stitch UI: TruckMasterView.tsx) -->
+    <div class="bg-surface-container-lowest border border-outline-variant overflow-x-auto shadow-sm">
+      <table class="w-full text-left border-collapse font-body-sm text-body-sm min-w-[1020px]">
+        <thead>
+          <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none border-b border-outline-variant">
+            <th class="py-2.5 px-3 w-36">No. Polisi</th>
+            <th class="py-2.5 px-3 w-56">Pengemudi Utama</th>
+            <th class="py-2.5 px-3 w-64">Perusahaan Ekspedisi</th>
+            <th class="py-2.5 px-3 w-40">RFID Tag CMS</th>
+            <th class="py-2.5 px-3 w-44">Tipe Chassis</th>
+            <th class="py-2.5 px-3 w-28 text-center">Status Izin</th>
+            <th class="py-2.5 px-3 w-36">Terdaftar Pada</th>
+            <th class="py-2.5 px-3 text-right pr-4 w-44">Aksi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-outline-variant">
+          {% for truck in trucks %}
+            <tr class="hover:bg-surface-container transition-colors">
+              <!-- 1. No. Polisi (Stitch Badge) -->
+              <td class="py-2 px-3 font-code-md text-code-md font-bold text-on-surface">
+                <span class="px-2 py-0.5 bg-primary text-on-primary border border-outline/30 rounded inline-block">
+                  {{ truck.no_polisi }}
+                </span>
+              </td>
+
+              <!-- 2. Pengemudi Utama -->
+              <td class="py-2 px-3">
+                {% if truck.driver %}
+                  <div class="font-semibold text-on-surface">{{ truck.driver.nama }}</div>
+                  <div class="font-code-sm text-[11px] text-outline">
+                    {{ truck.driver.no_hp|default:truck.driver.no_sim }}
+                  </div>
+                {% else %}
+                  <span class="text-outline fst-italic text-[11px]">Belum Ditentukan</span>
+                {% endif %}
+              </td>
+
+              <!-- 3. Perusahaan Ekspedisi -->
+              <td class="py-2 px-3">
+                <div class="text-on-surface font-medium">{{ truck.expedisi.nama_perusahaan }}</div>
+                {% if truck.expedisi.kode_ekspedisi %}
+                  <div class="font-code-sm text-[10px] text-outline">{{ truck.expedisi.kode_ekspedisi }}</div>
+                {% endif %}
+              </td>
+
+              <!-- 4. RFID Tag -->
+              <td class="py-2 px-3">
+                {% if truck.rfid_tag %}
+                  <span class="font-code-sm text-secondary font-bold">{{ truck.rfid_tag }}</span>
+                {% else %}
+                  <span class="text-outline fst-italic text-[11px]">-</span>
+                {% endif %}
+              </td>
+
+              <!-- 5. Tipe Chassis -->
+              <td class="py-2 px-3 font-code-sm text-on-surface-variant">
+                {{ truck.get_konfigurasi_display }}
+              </td>
+
+              <!-- 6. Status Izin Badge -->
+              <td class="py-2 px-3 text-center">
+                <span class="px-2 py-0.5 font-label-caps text-[10px] font-bold rounded inline-block {% if truck.is_active %}bg-primary-fixed text-on-primary-fixed border border-primary/40{% else %}bg-tertiary-container text-on-tertiary-container border border-error/40{% endif %}">
+                  {% if truck.is_active %}AKTIF{% else %}NON-AKTIF{% endif %}
+                </span>
+              </td>
+
+              <!-- 7. Terdaftar Pada -->
+              <td class="py-2 px-3 font-code-sm text-outline text-[12px]">
+                {{ truck.created_at|date:"d-M-Y H:i" }}
+              </td>
+
+              <!-- 8. Tombol Aksi -->
+              <td class="py-2 px-3 text-right pr-4">
+                <div class="flex items-center justify-end gap-1.5">
+                  <!-- Tombol Detail -->
+                  <button
+                    type="button"
+                    onclick="openDetailModal({{ truck.pk }});"
+                    class="h-6 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-[11px] rounded cursor-pointer transition-colors"
+                    title="Lihat Rincian Armada"
+                  >
+                    Detail
+                  </button>
+
+                  <!-- Tombol Edit -->
+                  <button
+                    type="button"
+                    onclick="openEditModal({{ truck.pk }});"
+                    class="h-6 px-2 bg-secondary text-on-secondary hover:bg-primary font-code-sm text-[11px] rounded cursor-pointer transition-colors border-0"
+                    title="Edit Data Armada"
+                  >
+                    Edit
+                  </button>
+
+                  <!-- Toggle Aktif/Non-Aktif -->
+                  <form method="POST" action="{% url 'truck_toggle' truck.pk %}" class="m-0 d-inline">
+                    {% csrf_token %}
+                    <button
+                      type="submit"
+                      class="h-6 px-1.5 bg-surface-container-low hover:bg-surface-container-high text-outline hover:text-on-surface border border-outline-variant font-code-sm text-[11px] rounded cursor-pointer transition-colors"
+                      title="{% if truck.is_active %}Non-aktifkan Izin Truk{% else %}Aktifkan Izin Truk{% endif %}"
+                      onclick="return confirm('Apakah Anda yakin ingin mengubah status izin operasi armada {{ truck.no_polisi }}?');"
+                    >
+                      <span class="material-symbols-outlined text-[13px] align-middle">
+                        {% if truck.is_active %}toggle_on{% else %}toggle_off{% endif %}
+                      </span>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center py-8 text-on-surface-variant font-body-sm">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="material-symbols-outlined text-outline text-[32px]">no_crash</span>
+                  <span>Tidak ada data armada truk yang sesuai dengan filter pencarian.</span>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 5. PAGINATION CONTROLS -->
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="flex items-center justify-between bg-surface-container-lowest border border-outline-variant px-space-md py-2 text-body-sm">
+        <div class="font-code-sm text-outline text-body-xs">
+          Menampilkan halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }} (Total {{ page_obj.paginator.count }} armada)
+        </div>
+
+        <div class="flex items-center gap-1">
+          {% if page_obj.has_previous %}
+            <a
+              href="?page=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if config_filter %}&config={{ config_filter }}{% endif %}{% if expedition_filter %}&expedition={{ expedition_filter }}{% endif %}"
+              class="h-7 px-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+              title="Halaman Pertama"
+            >
+              &laquo;
+            </a>
+            <a
+              href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if config_filter %}&config={{ config_filter }}{% endif %}{% if expedition_filter %}&expedition={{ expedition_filter }}{% endif %}"
+              class="h-7 px-2.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+            >
+              Sebelumnya
+            </a>
+          {% endif %}
+
+          <span class="h-7 px-3 bg-secondary text-on-secondary font-code-sm text-code-sm font-bold rounded flex items-center">
+            {{ page_obj.number }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a
+              href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if config_filter %}&config={{ config_filter }}{% endif %}{% if expedition_filter %}&expedition={{ expedition_filter }}{% endif %}"
+              class="h-7 px-2.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+            >
+              Selanjutnya
+            </a>
+            <a
+              href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if config_filter %}&config={{ config_filter }}{% endif %}{% if expedition_filter %}&expedition={{ expedition_filter }}{% endif %}"
+              class="h-7 px-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+              title="Halaman Terakhir"
+            >
+              &raquo;
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- 6. MODAL REGISTRASI TRUK BARU (#addTruckModal)                     -->
+<!-- ================================================================= -->
+<div class="modal fade" id="addTruckModal" tabindex="-1" aria-labelledby="addTruckModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="addTruckModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">add_circle</span>
+          Registrasi Truk &amp; CMS Baru
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" action="{% url 'truck_create' %}" class="m-0">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="row g-3">
+            <!-- Nomor Polisi -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Polisi <span class="text-error">*</span>
+              </label>
+              <input
+                type="text"
+                name="no_polisi"
+                class="form-control font-code-md text-code-md uppercase bg-surface-container-low border-outline-variant text-on-surface"
+                placeholder="Contoh: B 9012 XYZ"
+                required
+                autocomplete="off"
+              />
+              <div class="form-text font-code-sm text-[11px] text-outline">Gunakan format plat standar tanpa tanda baca.</div>
+            </div>
+
+            <!-- Konfigurasi Truk -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Konfigurasi Chassis <span class="text-error">*</span>
+              </label>
+              <select name="konfigurasi" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface" required>
+                {% for code, label in config_choices %}
+                  <option value="{{ code }}" {% if code == 'TRAILER_40' %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- RFID Tag CMS -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                RFID Tag CMS (Opsional)
+              </label>
+              <input
+                type="text"
+                name="rfid_tag"
+                class="form-control font-code-sm text-code-sm uppercase bg-surface-container-low border-outline-variant text-on-surface"
+                placeholder="Contoh: RFID-KJA-9912"
+                autocomplete="off"
+              />
+              <div class="form-text font-code-sm text-[11px] text-outline">Kosongkan jika transponder belum terpasang.</div>
+            </div>
+
+            <!-- Perusahaan Ekspedisi -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Perusahaan Ekspedisi <span class="text-error">*</span>
+              </label>
+              <select name="expedisi" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface" required>
+                <option value="">-- Pilih Ekspedisi Berizin --</option>
+                {% for exp in expeditions %}
+                  <option value="{{ exp.pk }}">{{ exp.nama_perusahaan }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Sopir Tetap -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Pengemudi Tetap / Utama (Opsional)
+              </label>
+              <select name="driver" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface">
+                <option value="">-- Tanpa Sopir Tetap --</option>
+                {% for drv in drivers %}
+                  <option value="{{ drv.pk }}">{{ drv.nama }} (SIM: {{ drv.no_sim }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Status Aktif Checkbox -->
+            <div class="col-md-6 d-flex align-items-center pt-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_active" id="addTruckActiveSwitch" checked>
+                <label class="form-check-label font-body-sm text-on-surface ms-2" for="addTruckActiveSwitch">
+                  <strong>Izin Operasi Aktif</strong> (Boleh melintas gerbang masuk)
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">
+            Batal
+          </button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">
+            Simpan Armada
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- 7. MODAL EDIT TRUK (#editTruckModal)                               -->
+<!-- ================================================================= -->
+<div class="modal fade" id="editTruckModal" tabindex="-1" aria-labelledby="editTruckModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="editTruckModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">edit_document</span>
+          Edit Data Armada: <span id="editModalNopolHeader" class="text-secondary-fixed font-code-md"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" id="editTruckForm" action="" class="m-0">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="row g-3">
+            <!-- Nomor Polisi -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Polisi <span class="text-error">*</span>
+              </label>
+              <input
+                type="text"
+                name="no_polisi"
+                id="editNoPolisi"
+                class="form-control font-code-md text-code-md uppercase bg-surface-container-low border-outline-variant text-on-surface"
+                required
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Konfigurasi Truk -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Konfigurasi Chassis <span class="text-error">*</span>
+              </label>
+              <select name="konfigurasi" id="editKonfigurasi" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface" required>
+                {% for code, label in config_choices %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- RFID Tag CMS -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                RFID Tag CMS
+              </label>
+              <input
+                type="text"
+                name="rfid_tag"
+                id="editRfidTag"
+                class="form-control font-code-sm text-code-sm uppercase bg-surface-container-low border-outline-variant text-on-surface"
+                autocomplete="off"
+              />
+            </div>
+
+            <!-- Perusahaan Ekspedisi -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Perusahaan Ekspedisi <span class="text-error">*</span>
+              </label>
+              <select name="expedisi" id="editExpedisi" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface" required>
+                {% for exp in expeditions %}
+                  <option value="{{ exp.pk }}">{{ exp.nama_perusahaan }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Sopir Tetap -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Pengemudi Tetap / Utama
+              </label>
+              <select name="driver" id="editDriver" class="form-select font-body-sm bg-surface-container-low border-outline-variant text-on-surface">
+                <option value="">-- Tanpa Sopir Tetap --</option>
+                {% for drv in drivers %}
+                  <option value="{{ drv.pk }}">{{ drv.nama }} (SIM: {{ drv.no_sim }})</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Status Aktif Checkbox -->
+            <div class="col-md-6 d-flex align-items-center pt-3">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_active" id="editTruckActiveSwitch">
+                <label class="form-check-label font-body-sm text-on-surface ms-2" for="editTruckActiveSwitch">
+                  <strong>Izin Operasi Aktif</strong>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">
+            Batal
+          </button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">
+            Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- 8. MODAL DETAIL TRUK (#detailTruckModal)                           -->
+<!-- ================================================================= -->
+<div class="modal fade" id="detailTruckModal" tabindex="-1" aria-labelledby="detailTruckModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="detailTruckModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">info</span>
+          Rincian Spesifikasi Armada: <span id="detailNopolHeader" class="text-secondary-fixed font-code-md"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4 space-y-4 font-body-sm">
+        <!-- Badge Banner -->
+        <div class="bg-surface-container-low p-3 border border-outline-variant flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-3">
+            <span id="detailNopolBadge" class="px-2.5 py-1 bg-primary text-on-primary font-code-md text-code-md font-bold rounded border border-outline/30"></span>
+            <div>
+              <div id="detailKonfigurasi" class="font-bold text-on-surface"></div>
+              <div id="detailExpedisi" class="text-on-surface-variant font-body-xs"></div>
+            </div>
+          </div>
+          <div id="detailStatusBadge"></div>
+        </div>
+
+        <!-- Spec Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <!-- Kolom Kiri: Spesifikasi & Kontak -->
+          <div class="bg-surface-container-low p-3 border border-outline-variant space-y-2">
+            <div class="font-label-caps text-label-caps uppercase text-outline font-bold border-b border-outline-variant pb-1">
+              Data Transponder &amp; Transporter
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/40">
+              <span class="text-outline">RFID Tag CMS:</span>
+              <span id="detailRfid" class="font-code-sm text-secondary font-bold"></span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/40">
+              <span class="text-outline">Perusahaan Ekspedisi:</span>
+              <span id="detailExpNama" class="font-semibold text-on-surface"></span>
+            </div>
+            <div class="flex justify-between py-1">
+              <span class="text-outline">Kode Ekspedisi:</span>
+              <span id="detailExpKode" class="font-code-sm text-on-surface"></span>
+            </div>
+          </div>
+
+          <!-- Kolom Kanan: Pengemudi & Audit -->
+          <div class="bg-surface-container-low p-3 border border-outline-variant space-y-2">
+            <div class="font-label-caps text-label-caps uppercase text-outline font-bold border-b border-outline-variant pb-1">
+              Pengemudi &amp; Riwayat Registrasi
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/40">
+              <span class="text-outline">Pengemudi Utama:</span>
+              <span id="detailDriverNama" class="font-semibold text-on-surface"></span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/40">
+              <span class="text-outline">No. SIM:</span>
+              <span id="detailDriverSim" class="font-code-sm text-on-surface"></span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-outline-variant/40">
+              <span class="text-outline">No. HP / WhatsApp:</span>
+              <span id="detailDriverHp" class="font-code-sm text-on-surface"></span>
+            </div>
+            <div class="flex justify-between py-1">
+              <span class="text-outline">Didaftarkan:</span>
+              <span id="detailCreatedAt" class="font-code-sm text-outline"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Riwayat Antrian Terakhir Armada -->
+        <div class="bg-surface-container-low p-3 border border-outline-variant space-y-2">
+          <div class="font-label-caps text-label-caps uppercase text-outline font-bold border-b border-outline-variant pb-1 flex items-center justify-between">
+            <span>Riwayat Aktivitas Antrian Terakhir</span>
+            <span class="material-symbols-outlined text-[16px] text-outline">history</span>
+          </div>
+          <div id="detailRecentQueuesContainer" class="divide-y divide-outline-variant/40 text-body-xs font-code-sm">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-between">
+        <a href="{% url 'gate_in' %}" class="btn btn-sm btn-outline-primary font-code-sm flex items-center gap-1 text-decoration-none">
+          <span class="material-symbols-outlined text-[16px]">how_to_reg</span>
+          <span>Daftarkan ke Gate In</span>
+        </a>
+        <button type="button" class="btn btn-sm btn-secondary font-code-sm" data-bs-dismiss="modal">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- 9. CLIENT-SIDE MODAL HANDLERS & KEYBOARD SHORTCUTS               -->
+<!-- ================================================================= -->
+<script>
+  // Bootstrap Modal instances
+  let addModalInstance = null;
+  let editModalInstance = null;
+  let detailModalInstance = null;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const addEl = document.getElementById('addTruckModal');
+    const editEl = document.getElementById('editTruckModal');
+    const detailEl = document.getElementById('detailTruckModal');
+
+    if (addEl && typeof bootstrap !== 'undefined') addModalInstance = new bootstrap.Modal(addEl);
+    if (editEl && typeof bootstrap !== 'undefined') editModalInstance = new bootstrap.Modal(editEl);
+    if (detailEl && typeof bootstrap !== 'undefined') detailModalInstance = new bootstrap.Modal(detailEl);
+
+    // Keyboard Shortcuts: [F2] Cari, [Alt+N] Tambah Truk Baru
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        const searchInput = document.getElementById('truckSearchInput');
+        if (searchInput) searchInput.focus();
+      } else if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        openAddModal();
+      }
+    });
+  });
+
+  function openAddModal() {
+    if (addModalInstance) {
+      addModalInstance.show();
+    }
+  }
+
+  function openEditModal(truckId) {
+    fetch(`/truck-master/${truckId}/detail-json/`)
+      .then(response => {
+        if (!response.ok) throw new Error('Gagal mengambil data armada');
+        return response.json();
+      })
+      .then(data => {
+        document.getElementById('editModalNopolHeader').innerText = data.no_polisi;
+        document.getElementById('editNoPolisi').value = data.no_polisi;
+        document.getElementById('editKonfigurasi').value = data.konfigurasi;
+        document.getElementById('editRfidTag').value = data.rfid_tag || '';
+        document.getElementById('editExpedisi').value = data.expedisi_id;
+        document.getElementById('editDriver').value = data.driver_id || '';
+        document.getElementById('editTruckActiveSwitch').checked = data.is_active;
+
+        document.getElementById('editTruckForm').action = `/truck-master/${truckId}/edit/`;
+
+        if (editModalInstance) editModalInstance.show();
+      })
+      .catch(err => {
+        alert('Gagal memuat data armada: ' + err.message);
+      });
+  }
+
+  function openDetailModal(truckId) {
+    fetch(`/truck-master/${truckId}/detail-json/`)
+      .then(response => {
+        if (!response.ok) throw new Error('Gagal mengambil detail armada');
+        return response.json();
+      })
+      .then(data => {
+        document.getElementById('detailNopolHeader').innerText = data.no_polisi;
+        document.getElementById('detailNopolBadge').innerText = data.no_polisi;
+        document.getElementById('detailKonfigurasi').innerText = data.konfigurasi_display;
+        document.getElementById('detailExpedisi').innerText = data.expedisi_nama;
+
+        const statusBadge = document.getElementById('detailStatusBadge');
+        if (data.is_active) {
+          statusBadge.innerHTML = '<span class="px-2 py-0.5 font-label-caps text-[11px] font-bold rounded bg-primary-fixed text-on-primary-fixed border border-primary/40">IZIN OPERASI AKTIF</span>';
+        } else {
+          statusBadge.innerHTML = '<span class="px-2 py-0.5 font-label-caps text-[11px] font-bold rounded bg-tertiary-container text-on-tertiary-container border border-error/40">HOLD / NON-AKTIF</span>';
+        }
+
+        document.getElementById('detailRfid').innerText = data.rfid_tag || '- (Belum Ada Tag)';
+        document.getElementById('detailExpNama').innerText = data.expedisi_nama;
+        document.getElementById('detailExpKode').innerText = data.expedisi_kode || '-';
+
+        document.getElementById('detailDriverNama').innerText = data.driver_nama;
+        document.getElementById('detailDriverSim').innerText = data.driver_sim;
+        document.getElementById('detailDriverHp').innerText = data.driver_hp;
+        document.getElementById('detailCreatedAt').innerText = data.created_at;
+
+        const queuesContainer = document.getElementById('detailRecentQueuesContainer');
+        if (data.recent_queues && data.recent_queues.length > 0) {
+          let html = '';
+          data.recent_queues.forEach(q => {
+            html += `
+              <div class="flex items-center justify-between py-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-on-surface">${q.no_antrian}</span>
+                  <span class="text-outline">(${q.lane})</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-outline">${q.waktu_masuk}</span>
+                  <span class="px-1.5 py-0.2 rounded font-semibold text-[10px] ${q.status_raw === 'PROSES' ? 'bg-secondary-fixed text-on-secondary-fixed' : q.status_raw === 'SELESAI' ? 'bg-surface-container-high text-primary' : 'bg-surface-container text-on-surface'}">${q.status}</span>
+                </div>
+              </div>
+            `;
+          });
+          queuesContainer.innerHTML = html;
+        } else {
+          queuesContainer.innerHTML = '<div class="py-2 text-outline fst-italic">Belum ada aktivitas antrian gerbang tercatat untuk armada ini.</div>';
+        }
+
+        if (detailModalInstance) detailModalInstance.show();
+      })
+      .catch(err => {
+        alert('Gagal memuat detail armada: ' + err.message);
+      });
+  }
+</script>
+{% endblock %}

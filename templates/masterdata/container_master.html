@@ -1,0 +1,641 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Master Data Peti Kemas &amp; Kontainer — Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. SUB-HEADER BREADCRUMB & ACTION BAR -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Master Data Peti Kemas &amp; Kontainer (ISO 6346)
+        </span>
+        <span class="inline-flex items-center px-2 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          {{ total_containers|default:0 }} KONTAINER TERDATA
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Database peti kemas terdaftar, spesifikasi ISO, status muatan, segel, dan verifikasi berat kotor VGM.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        onclick="openAddModal();"
+        class="h-9 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold cursor-pointer rounded transition-colors"
+      >
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        <span>+ Registrasi Peti Kemas Baru</span>
+      </button>
+    </div>
+  </div>
+
+  {% include 'masterdata/_tabs.html' %}
+
+  <!-- 2. KPI CARDS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 px-space-md mb-4">
+    <!-- Card 1: Total Kontainer -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>Total Kontainer</span>
+        <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-surface font-code-lg">{{ total_containers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Unit terdata di TOS</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Siap Operasi (Aktif) -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-secondary text-label-caps font-label-caps uppercase">
+        <span>Siap Operasi</span>
+        <span class="material-symbols-outlined text-[18px] text-secondary">task_alt</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-secondary font-code-lg">{{ active_containers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Dapat melintas gate</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Muatan Import & Export -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-primary text-label-caps font-label-caps uppercase">
+        <span>Import / Export Full</span>
+        <span class="material-symbols-outlined text-[18px] text-primary">sync_alt</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-primary font-code-lg">{{ import_count }} / {{ export_count }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Imp: {{ import_count }} | Exp: {{ export_count }}</div>
+      </div>
+    </div>
+
+    <!-- Card 4: VGM Verified -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-on-tertiary-container text-label-caps font-label-caps uppercase">
+        <span>VGM Verified</span>
+        <span class="material-symbols-outlined text-[18px] text-on-tertiary-container">scale</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-tertiary-container font-code-lg">{{ vgm_verified_count }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Sertifikasi berat SOLAS</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-space-md flex flex-col gap-space-md">
+    <!-- 3. SEARCH & MULTI-CRITERIA FILTER TOOLSTRIP -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3">
+      <form method="GET" action="{% url 'container_master' %}" class="flex flex-col gap-2 m-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Quick Search -->
+          <div class="relative flex-1 min-w-[240px] max-w-md">
+            <span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-outline">search</span>
+            <input
+              name="search"
+              value="{{ search_query }}"
+              class="w-full h-8 pl-8 pr-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+              placeholder="Cari No. Kontainer, Pelayaran, Segel, DO..."
+              type="text"
+            />
+          </div>
+
+          <!-- Filter Ukuran -->
+          <select
+            name="ukuran"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Ukuran</option>
+            {% for code, label in size_choices %}
+              <option value="{{ code }}" {% if ukuran_filter == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Tipe -->
+          <select
+            name="tipe"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Tipe</option>
+            {% for code, label in type_choices %}
+              <option value="{{ code }}" {% if tipe_filter == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Kategori Muatan -->
+          <select
+            name="kategori"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Kategori</option>
+            {% for code, label in category_choices %}
+              <option value="{{ code }}" {% if kategori_filter == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Status Izin -->
+          <select
+            name="status"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Status</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Status: Aktif</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Status: Hold / Non-Aktif</option>
+          </select>
+
+          <button
+            type="submit"
+            class="h-8 px-3 bg-secondary text-on-secondary font-code-sm text-code-sm font-semibold rounded hover:bg-primary transition-colors cursor-pointer border-0"
+          >
+            Filter
+          </button>
+
+          {% if search_query or status_filter or ukuran_filter or tipe_filter or kategori_filter or vgm_filter %}
+            <a
+              href="{% url 'container_master' %}"
+              class="h-8 px-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-code-sm text-code-sm flex items-center gap-1 rounded border border-outline-variant text-decoration-none"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+              Reset
+            </a>
+          {% endif %}
+        </div>
+
+        <div class="text-on-surface-variant font-code-sm text-code-sm text-end">
+          Menampilkan <strong>{{ page_obj.start_index|default:0 }}-{{ page_obj.end_index|default:0 }}</strong> dari <strong>{{ filtered_count }}</strong> kontainer
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. TABEL MASTER DATA PETI KEMAS -->
+    <div class="bg-surface-container-lowest border border-outline-variant shadow-sm" style="border-radius: 2px;">
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table class="w-full text-left border-collapse font-body-sm text-body-sm" style="min-width: 950px;">
+          <thead>
+            <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none border-b border-outline-variant">
+              <th class="py-2.5 px-3" style="width: 170px;">No. Kontainer (ISO)</th>
+              <th class="py-2.5 px-3" style="width: 140px;">Ukuran &amp; Tipe</th>
+              <th class="py-2.5 px-3" style="width: 130px;">Kategori Muatan</th>
+              <th class="py-2.5 px-3" style="width: 120px;">Berat Kotor</th>
+              <th class="py-2.5 px-3" style="width: 180px;">Pelayaran &amp; Segel</th>
+              <th class="py-2.5 px-3" style="width: 140px;">Ref Dokumen</th>
+              <th class="py-2.5 px-3 text-center" style="width: 110px;">Status</th>
+              <th class="py-2.5 px-3 text-end pe-4" style="width: 140px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/60">
+            {% for c in containers %}
+              <tr class="hover:bg-surface-container transition-colors">
+                <!-- No Kontainer & VGM -->
+                <td class="py-2.5 px-3">
+                  <div class="font-code-md font-bold text-on-surface">{{ c.no_kontainer }}</div>
+                  <div class="mt-0.5">
+                    {% if c.status_vgm == 'VERIFIED' %}
+                      <span class="inline-flex items-center gap-0.5 text-[9px] font-code-sm font-bold text-secondary bg-secondary-fixed px-1 py-0.2 rounded">
+                        <span class="material-symbols-outlined text-[11px]">verified</span>
+                        VGM OK
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center gap-0.5 text-[9px] font-code-sm font-bold text-on-tertiary-container bg-tertiary-container/20 px-1 py-0.2 rounded">
+                        PENDING VGM
+                      </span>
+                    {% endif %}
+                  </div>
+                </td>
+
+                <!-- Ukuran & Tipe -->
+                <td class="py-2.5 px-3">
+                  <div class="font-code-sm font-bold text-on-surface">{{ c.get_ukuran_display }}</div>
+                  <div class="text-on-surface-variant text-[10px]">{{ c.get_tipe_display }}</div>
+                </td>
+
+                <!-- Kategori Muatan -->
+                <td class="py-2.5 px-3">
+                  {% if c.kategori == 'IMPORT' %}
+                    <span class="px-1.5 py-0.5 bg-primary-container text-primary-fixed font-label-caps font-bold text-[10px] rounded border border-primary">
+                      IMPORT FULL
+                    </span>
+                  {% elif c.kategori == 'EXPORT' %}
+                    <span class="px-1.5 py-0.5 bg-secondary text-on-secondary font-label-caps font-bold text-[10px] rounded">
+                      EXPORT FULL
+                    </span>
+                  {% else %}
+                    <span class="px-1.5 py-0.5 bg-surface-container text-on-surface-variant font-label-caps font-bold text-[10px] rounded border border-outline-variant">
+                      EMPTY RETURN
+                    </span>
+                  {% endif %}
+                </td>
+
+                <!-- Berat Kotor -->
+                <td class="py-2.5 px-3 font-code-sm">
+                  <div class="font-bold text-on-surface">{{ c.berat_kotor }} kg</div>
+                  <div class="text-outline text-[10px]">{{ c.berat_kotor|floatformat:0 }} KG</div>
+                </td>
+
+                <!-- Pelayaran & Segel -->
+                <td class="py-2.5 px-3">
+                  <div class="font-body-sm text-on-surface fw-semibold text-truncate" style="max-width: 170px;">
+                    {{ c.shipping_line|default:"-" }}
+                  </div>
+                  <div class="text-on-surface-variant font-code-sm text-[10px]">
+                    Segel: {{ c.seal_number|default:"-" }}
+                  </div>
+                </td>
+
+                <!-- Ref Dokumen -->
+                <td class="py-2.5 px-3 font-code-sm text-on-surface text-[11px]">
+                  {% if c.ref_dokumen %}
+                    <span class="px-1.5 py-0.5 bg-surface-container border border-outline-variant rounded">
+                      {{ c.ref_dokumen }}
+                    </span>
+                  {% else %}
+                    <span class="text-outline fst-italic">-</span>
+                  {% endif %}
+                </td>
+
+                <!-- Status Operasi -->
+                <td class="py-2.5 px-3 text-center">
+                  {% if c.is_active %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed font-label-caps font-bold text-[10px] rounded">
+                      <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      AKTIF
+                    </span>
+                  {% else %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-tertiary-container/20 text-on-tertiary-container font-label-caps font-bold text-[10px] rounded border border-tertiary-container/40">
+                      <span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                      HOLD
+                    </span>
+                  {% endif %}
+                </td>
+
+                <!-- Aksi -->
+                <td class="py-2.5 px-3 text-end pe-4">
+                  <div class="inline-flex items-center gap-1.5">
+                    <!-- Tombol Edit -->
+                    <button
+                      type="button"
+                      onclick="openEditModal({{ c.pk }});"
+                      class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-code-sm text-[11px] border border-outline-variant rounded flex items-center gap-1 cursor-pointer"
+                      title="Edit Data Peti Kemas"
+                    >
+                      <span class="material-symbols-outlined text-[13px]">edit</span>
+                      Edit
+                    </button>
+
+                    <!-- Tombol Toggle Aktif/Nonaktif -->
+                    <form method="POST" action="{% url 'container_toggle' c.pk %}" class="d-inline m-0" onsubmit="return confirm('Apakah Anda yakin ingin mengubah status aktif peti kemas {{ c.no_kontainer }}?');">
+                      {% csrf_token %}
+                      {% if c.is_active %}
+                        <button
+                          type="submit"
+                          class="h-7 px-1.5 bg-surface-container hover:bg-tertiary-container/20 text-on-tertiary-container border border-outline-variant rounded flex items-center justify-center cursor-pointer"
+                          title="Nonaktifkan Peti Kemas (Hold/Repair)"
+                        >
+                          <span class="material-symbols-outlined text-[15px]">block</span>
+                        </button>
+                      {% else %}
+                        <button
+                          type="submit"
+                          class="h-7 px-1.5 bg-secondary hover:bg-primary text-on-secondary border-0 rounded flex items-center justify-center cursor-pointer"
+                          title="Aktifkan Kembali Peti Kemas"
+                        >
+                          <span class="material-symbols-outlined text-[15px]">check_circle</span>
+                        </button>
+                      {% endif %}
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="8" class="text-center py-6 text-on-surface-variant">
+                  <div class="flex flex-col items-center justify-center gap-2 py-4">
+                    <span class="material-symbols-outlined text-outline text-[40px]">inventory_2</span>
+                    <span class="font-headline-sm text-on-surface font-semibold">Tidak Ada Data Peti Kemas</span>
+                    <p class="font-body-xs text-outline max-w-md mb-2">
+                      {% if search_query or status_filter or ukuran_filter or tipe_filter or kategori_filter %}
+                        Tidak ditemukan kontainer yang cocok dengan filter pencarian saat ini.
+                      {% else %}
+                        Belum ada peti kemas yang terdaftar dalam master data.
+                      {% endif %}
+                    </p>
+                    <button
+                      type="button"
+                      onclick="openAddModal();"
+                      class="h-8 px-4 bg-primary-container hover:bg-primary text-on-primary font-code-md text-code-md font-bold rounded cursor-pointer border-0"
+                    >
+                      + Registrasi Peti Kemas Sekarang
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginasi -->
+      {% if page_obj.has_other_pages %}
+        <div class="p-3 border-t border-outline-variant flex items-center justify-between flex-wrap gap-2 font-code-sm text-code-sm">
+          <div class="text-on-surface-variant">
+            Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}
+          </div>
+          <div class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if ukuran_filter %}&ukuran={{ ukuran_filter }}{% endif %}{% if tipe_filter %}&tipe={{ tipe_filter }}{% endif %}{% if kategori_filter %}&kategori={{ kategori_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center gap-1 text-decoration-none">
+                &laquo; Prev
+              </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+              {% if page_obj.number == num %}
+                <span class="h-7 px-2.5 bg-primary text-on-primary font-bold rounded flex items-center justify-center">{{ num }}</span>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if ukuran_filter %}&ukuran={{ ukuran_filter }}{% endif %}{% if tipe_filter %}&tipe={{ tipe_filter }}{% endif %}{% if kategori_filter %}&kategori={{ kategori_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center justify-center text-decoration-none">{{ num }}</a>
+              {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if ukuran_filter %}&ukuran={{ ukuran_filter }}{% endif %}{% if tipe_filter %}&tipe={{ tipe_filter }}{% endif %}{% if kategori_filter %}&kategori={{ kategori_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center gap-1 text-decoration-none">
+                Next &raquo;
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL REGISTRASI PETI KEMAS BARU                                  -->
+<!-- ================================================================= -->
+<div class="modal fade" id="addContainerModal" tabindex="-1" aria-labelledby="addContainerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="addContainerModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">inventory_2</span>
+          Registrasi Peti Kemas Baru (ISO 6346)
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" action="{% url 'container_create' %}" id="addContainerForm">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="row g-3">
+            <!-- No Kontainer -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Kontainer (ISO 6346) <span class="text-error">*</span>
+              </label>
+              {{ container_form.no_kontainer }}
+              <div class="form-text font-code-sm text-[10px] text-on-surface-variant">
+                Harus 4 huruf kapital diikuti 7 angka (contoh: MSKU7712391).
+              </div>
+            </div>
+
+            <!-- Berat Kotor -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Berat Kotor (kg) <span class="text-error">*</span>
+              </label>
+              {{ container_form.berat_kotor }}
+            </div>
+
+            <!-- Ukuran -->
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Ukuran Peti Kemas <span class="text-error">*</span>
+              </label>
+              {{ container_form.ukuran }}
+            </div>
+
+            <!-- Tipe -->
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Tipe Peti Kemas <span class="text-error">*</span>
+              </label>
+              {{ container_form.tipe }}
+            </div>
+
+            <!-- Kategori Muatan -->
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Kategori Muatan <span class="text-error">*</span>
+              </label>
+              {{ container_form.kategori }}
+            </div>
+
+            <!-- Shipping Line -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Pelayaran / Shipping Line
+              </label>
+              {{ container_form.shipping_line }}
+            </div>
+
+            <!-- Nomor Segel -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Segel (Seal)
+              </label>
+              {{ container_form.seal_number }}
+            </div>
+
+            <!-- Ref Dokumen -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                No. Booking / DO / SPPB
+              </label>
+              {{ container_form.ref_dokumen }}
+            </div>
+
+            <!-- Status VGM -->
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Status VGM
+              </label>
+              {{ container_form.status_vgm }}
+            </div>
+
+            <!-- Status Aktif -->
+            <div class="col-12 pt-2">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_active" id="addContainerActiveSwitch" checked>
+                <label class="form-check-label font-body-sm text-on-surface ms-2" for="addContainerActiveSwitch">
+                  <strong>Status Operasi Aktif (Dapat digunakan transaksi antrian gate)</strong>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">Simpan Peti Kemas</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL EDIT PETI KEMAS                                             -->
+<!-- ================================================================= -->
+<div class="modal fade" id="editContainerModal" tabindex="-1" aria-labelledby="editContainerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="editContainerModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">edit</span>
+          Edit Data Peti Kemas
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" id="editContainerForm" action="">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Kontainer (ISO 6346) <span class="text-error">*</span>
+              </label>
+              <input type="text" name="no_kontainer" id="editContainerNo" class="form-control font-code-md text-code-md uppercase" maxlength="11" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Berat Kotor (kg) <span class="text-error">*</span>
+              </label>
+              <input type="number" step="0.01" min="1" name="berat_kotor" id="editContainerBerat" class="form-control font-code-sm text-code-sm" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Ukuran Peti Kemas <span class="text-error">*</span>
+              </label>
+              <select name="ukuran" id="editContainerUkuran" class="form-select font-body-sm text-body-sm" required>
+                {% for code, label in size_choices %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Tipe Peti Kemas <span class="text-error">*</span>
+              </label>
+              <select name="tipe" id="editContainerTipe" class="form-select font-body-sm text-body-sm" required>
+                {% for code, label in type_choices %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Kategori Muatan <span class="text-error">*</span>
+              </label>
+              <select name="kategori" id="editContainerKategori" class="form-select font-body-sm text-body-sm" required>
+                {% for code, label in category_choices %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Pelayaran / Shipping Line
+              </label>
+              <input type="text" name="shipping_line" id="editContainerShipping" class="form-control font-body-sm text-body-sm">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Nomor Segel (Seal)
+              </label>
+              <input type="text" name="seal_number" id="editContainerSeal" class="form-control font-code-sm text-code-sm uppercase">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                No. Booking / DO / SPPB
+              </label>
+              <input type="text" name="ref_dokumen" id="editContainerDokumen" class="form-control font-code-sm text-code-sm uppercase">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+                Status VGM
+              </label>
+              <select name="status_vgm" id="editContainerVgm" class="form-select font-body-sm text-body-sm" required>
+                {% for code, label in vgm_choices %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-12 pt-2">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="is_active" id="editContainerActiveSwitch">
+                <label class="form-check-label font-body-sm text-on-surface ms-2" for="editContainerActiveSwitch">
+                  <strong>Status Operasi Aktif (Dapat digunakan transaksi antrian gate)</strong>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAddModal() {
+  const modal = new bootstrap.Modal(document.getElementById('addContainerModal'));
+  modal.show();
+}
+
+function openEditModal(containerId) {
+  fetch(`/container-master/${containerId}/detail-json/`)
+    .then(response => {
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
+    })
+    .then(data => {
+      document.getElementById('editContainerNo').value = data.no_kontainer || '';
+      document.getElementById('editContainerBerat').value = data.berat_kotor || '';
+      document.getElementById('editContainerUkuran').value = data.ukuran || '40ft';
+      document.getElementById('editContainerTipe').value = data.tipe || 'DRY';
+      document.getElementById('editContainerKategori').value = data.kategori || 'IMPORT';
+      document.getElementById('editContainerShipping').value = data.shipping_line === '-' ? '' : (data.shipping_line || '');
+      document.getElementById('editContainerSeal').value = data.seal_number === '-' ? '' : (data.seal_number || '');
+      document.getElementById('editContainerDokumen').value = data.ref_dokumen === '-' ? '' : (data.ref_dokumen || '');
+      document.getElementById('editContainerVgm').value = data.status_vgm || 'VERIFIED';
+      document.getElementById('editContainerActiveSwitch').checked = Boolean(data.is_active);
+      document.getElementById('editContainerForm').action = `/container-master/${containerId}/edit/`;
+
+      const modal = new bootstrap.Modal(document.getElementById('editContainerModal'));
+      modal.show();
+    })
+    .catch(error => {
+      alert('Gagal mengambil data kontainer: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

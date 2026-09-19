@@ -1,0 +1,781 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard Ringkasan Operasional — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- Top Command Bar -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+    <div class="flex flex-col">
+      <div class="flex items-center gap-space-xs">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Dashboard Ringkasan Operasional
+        </span>
+        <span class="inline-flex items-center px-1.5 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold uppercase" style="border-radius: 2px;">
+          REALTIME
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Pemantauan throughput gerbang, utilisasi jalur, dan metrik antrian armada secara realtime.
+      </p>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+      <button
+        onclick="showToastNotification('Export data ringkasan harian (PDF/CSV) berhasil');"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        type="button"
+      >
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size: 16px;">file_download</span>
+        <span>Export CSV</span>
+      </button>
+      <button
+        onclick="window.location.reload();"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        type="button"
+        title="Segarkan data (F5)"
+      >
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size: 16px;">refresh</span>
+        <span>Refresh (F5)</span>
+      </button>
+      <a
+        href="{% url 'gate_in' %}"
+        class="h-8 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold shadow-sm transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+        <span>+ TAMBAH TRUK MASUK</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="p-space-md flex flex-col gap-space-md">
+    <!-- 6 Compact Industrial Stat Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-space-md">
+      <!-- Card 1: Total Truk Masuk (Gate In) -->
+      <div
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-outline uppercase">
+            Total Gate In Hari Ini
+          </span>
+          <span class="material-symbols-outlined text-outline" style="font-size: 18px;">login</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_gate_in }}</span>
+          <span class="font-code-sm text-code-sm text-outline font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] text-primary font-bold bg-primary-fixed px-1 py-0.2 rounded ml-auto">
+            Total: {{ count_total }}
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Truk Masuk Hari Ini</span>
+          <span class="font-semibold text-on-surface">{{ count_total }} Terdaftar</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Menunggu di Buffer -->
+      <a
+        href="{% url 'queue_list' %}"
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between cursor-pointer hover:border-secondary transition-all text-decoration-none text-on-surface"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-outline uppercase">
+            Truck Menunggu
+          </span>
+          <span class="material-symbols-outlined text-outline" style="font-size: 18px;">hourglass_empty</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_menunggu }}</span>
+          <span class="font-code-sm text-code-sm text-outline font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] text-on-tertiary-container font-bold bg-tertiary-container/10 px-1 py-0.2 rounded ml-auto">
+            {{ buffer_occupancy_pct }}% Buffer
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Kapasitas Buffer</span>
+          <span class="font-semibold text-on-surface">{{ count_menunggu }}/{{ buffer_capacity }} Truk</span>
+        </div>
+      </a>
+
+      <!-- Card 3: Sedang di Booth / Gerbang -->
+      <a
+        href="{% url 'queue_list' %}"
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between cursor-pointer hover:border-secondary transition-all text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-secondary uppercase">
+            Sedang Proses
+          </span>
+          <span class="material-symbols-outlined text-secondary" style="font-size: 18px;">sync_saved_locally</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight text-secondary">{{ count_proses_display }}</span>
+          <span class="font-code-sm text-code-sm text-secondary font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] text-secondary font-bold bg-secondary-fixed px-1 py-0.2 rounded ml-auto">
+            Booth Aktif
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Rata-rata Booth</span>
+          <span class="font-semibold text-secondary">{{ avg_booth_str }}</span>
+        </div>
+      </a>
+
+      <!-- Card 4: Truck Tertahan (Hold Gate) -->
+      <a
+        href="{% url 'queue_list' %}"
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between cursor-pointer hover:border-tertiary transition-all text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-on-tertiary-container uppercase">
+            Truck Tertahan
+          </span>
+          <span class="material-symbols-outlined text-on-tertiary-container" style="font-size: 18px;">warning</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight {% if count_tertahan > 0 %}text-on-tertiary-container{% else %}text-on-surface{% endif %}">{{ count_tertahan }}</span>
+          <span class="font-code-sm text-code-sm text-outline font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] {% if count_tertahan > 0 %}text-on-tertiary-container bg-tertiary-container/20{% else %}text-on-surface-variant bg-surface-container{% endif %} font-bold px-1 py-0.2 rounded ml-auto">
+            {% if count_tertahan > 0 %}Hold Gate{% else %}Lancar{% endif %}
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Status Kendala</span>
+          <span class="font-semibold {% if count_tertahan > 0 %}text-on-tertiary-container{% else %}text-on-surface{% endif %}">{% if count_tertahan > 0 %}Perlu Tindakan{% else %}Nihil Kendala{% endif %}</span>
+        </div>
+      </a>
+
+      <!-- Card 5: Selesai Gate In -->
+      <div
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-on-surface uppercase">
+            Selesai di Yard
+          </span>
+          <span class="material-symbols-outlined text-primary" style="font-size: 18px;">fact_check</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_selesai }}</span>
+          <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] text-primary font-bold bg-primary-fixed px-1 py-0.2 rounded ml-auto">
+            {% if total_teus > 0 %}{{ total_teus }} TEUs{% else %}0 TEUs{% endif %}
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Menuju Gate Out</span>
+          <span class="font-semibold text-on-surface">{{ count_selesai }} Truk Siap</span>
+        </div>
+      </div>
+
+      <!-- Card 6: Total Gate Out Hari Ini -->
+      <div
+        class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm flex flex-col justify-between"
+        style="border-radius: 2px;"
+      >
+        <div class="flex items-center justify-between">
+          <span class="font-label-caps text-label-caps text-outline uppercase">
+            Total Gate Out
+          </span>
+          <span class="material-symbols-outlined text-outline" style="font-size: 18px;">output</span>
+        </div>
+        <div class="flex items-baseline gap-2 my-2">
+          <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_gate_out }}</span>
+          <span class="font-code-sm text-code-sm text-outline font-semibold">Truk</span>
+          <span class="font-body-xs text-[10px] text-on-surface font-bold bg-surface-container px-1 py-0.2 rounded ml-auto">
+            Keluar: {{ count_gate_out }}
+          </span>
+        </div>
+        <div class="font-body-xs text-body-xs text-on-surface-variant border-t border-outline-variant/60 pt-1.5 flex items-center justify-between">
+          <span>Siklus Selesai</span>
+          <span class="font-semibold text-on-surface">{{ count_gate_out }} Armada Keluar</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- OPERATIONAL ALERT PANEL (Notification & Operational Alert)       -->
+    <!-- ================================================================= -->
+    <div id="operationalAlertPanel" class="bg-surface-container-lowest border border-outline-variant shadow-sm" style="border-radius: 2px;">
+      <!-- Panel Header -->
+      <div class="p-space-sm px-space-md border-b border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-2 {% if alerts_total_count > 0 %}bg-error/5 border-l-4 border-l-error{% else %}bg-surface-container-low border-l-4 border-l-secondary{% endif %}">
+        <div class="flex items-center gap-space-xs">
+          {% if alerts_total_count > 0 %}
+            <span class="material-symbols-outlined text-error" style="font-size: 20px;">notification_important</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Peringatan Operasional &amp; Kendala Gerbang
+            </span>
+            <span class="px-2 py-0.5 bg-error text-on-error font-code-sm text-[11px] font-bold uppercase" style="border-radius: 2px;">
+              {{ alerts_total_count }} ALERT AKTIF
+            </span>
+          {% else %}
+            <span class="material-symbols-outlined text-secondary" style="font-size: 20px;">verified</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Peringatan Operasional Gerbang
+            </span>
+            <span class="px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed font-code-sm text-[11px] font-bold uppercase" style="border-radius: 2px;">
+              NORMAL &bull; 0 KENDALA
+            </span>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-space-sm font-code-sm text-[11px] text-outline">
+          <span>Threshold Waktu: <strong>Menunggu &gt; {{ threshold_waiting }}m</strong> &bull; <strong>Proses &gt; {{ threshold_process }}m</strong></span>
+        </div>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="p-space-md">
+        {% if alerts_total_count > 0 %}
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-space-md">
+
+            <!-- Sub-Panel 1: Truck Tertahan (Hold Gate) -->
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between border-b border-outline-variant pb-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-error" style="font-size: 16px;">front_hand</span>
+                  <span class="font-label-caps text-label-caps text-on-surface font-bold uppercase">
+                    Truk Tertahan (Hold Gate)
+                  </span>
+                </div>
+                <span class="font-code-sm text-[11px] {% if alerts_held|length > 0 %}text-error font-bold{% else %}text-outline{% endif %}">
+                  {{ alerts_held|length }} Truk
+                </span>
+              </div>
+
+              {% if alerts_held %}
+                <div class="flex flex-col gap-2 max-h-[320px] overflow-y-auto pr-1">
+                  {% for h in alerts_held %}
+                    <div class="p-2.5 bg-tertiary-container/10 border border-on-tertiary-container/30 hover:border-error transition-all" style="border-radius: 2px;">
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                          <span class="px-1.5 py-0.5 bg-error text-on-error font-code-sm text-[11px] font-bold" style="border-radius: 2px;">
+                            HOLD
+                          </span>
+                          <span class="font-code-md text-code-md font-bold text-primary">#{{ h.no_antrian }}</span>
+                          <span class="font-code-md text-code-md font-bold text-on-surface">{{ h.no_polisi }}</span>
+                        </div>
+                        <span class="font-code-sm text-[11px] text-error font-semibold">
+                          Tertahan: {{ h.duration_str }}
+                        </span>
+                      </div>
+
+                      <div class="mt-1.5 text-body-xs font-body-xs text-on-surface flex items-start gap-1">
+                        <span class="material-symbols-outlined text-outline text-[14px] shrink-0 mt-0.5">info</span>
+                        <span>Alasan: <strong class="text-error">{{ h.alasan_tertahan }}</strong></span>
+                      </div>
+
+                      <div class="mt-1.5 pt-1.5 border-t border-outline-variant/60 flex items-center justify-between text-[11px] font-code-sm text-outline">
+                        <span>{{ h.driver_nama }} &bull; {{ h.expedisi|truncatechars:18 }}</span>
+                        <div class="flex items-center gap-1">
+                          <a
+                            href="{% url 'queue_detail' h.entry.pk %}"
+                            class="text-secondary hover:underline font-semibold flex items-center gap-0.5 text-decoration-none"
+                            title="Buka Detail Antrian"
+                          >
+                            <span>Inspeksi</span>
+                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="p-3 bg-surface-container-low text-center text-outline font-code-sm text-body-xs border border-dashed border-outline-variant" style="border-radius: 2px;">
+                  Nihil armada berstatus tertahan (Hold Gate).
+                </div>
+              {% endif %}
+            </div>
+
+            <!-- Sub-Panel 2: Antrian Melebihi Threshold Operasional -->
+            <div class="flex flex-col gap-2">
+              <div class="flex items-center justify-between border-b border-outline-variant pb-1.5">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-on-tertiary-container" style="font-size: 16px;">timer_off</span>
+                  <span class="font-label-caps text-label-caps text-on-surface font-bold uppercase">
+                    Antrian Melebihi Batas Waktu (Overdue)
+                  </span>
+                </div>
+                <span class="font-code-sm text-[11px] {% if alerts_overdue|length > 0 %}text-on-tertiary-container font-bold{% else %}text-outline{% endif %}">
+                  {{ alerts_overdue|length }} Antrian
+                </span>
+              </div>
+
+              {% if alerts_overdue %}
+                <div class="flex flex-col gap-2 max-h-[320px] overflow-y-auto pr-1">
+                  {% for o in alerts_overdue %}
+                    <div class="p-2.5 bg-surface-container-low border border-outline-variant hover:border-secondary transition-all" style="border-radius: 2px;">
+                      <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                          <span class="px-1.5 py-0.5 {% if o.status == 'PROSES' %}bg-secondary text-on-secondary{% else %}bg-surface-container-high text-on-surface{% endif %} font-code-sm text-[10px] font-bold uppercase" style="border-radius: 2px;">
+                            {{ o.status }}
+                          </span>
+                          <span class="font-code-md text-code-md font-bold text-primary">#{{ o.no_antrian }}</span>
+                          <span class="font-code-md text-code-md font-bold text-on-surface">{{ o.no_polisi }}</span>
+                        </div>
+                        <span class="font-code-sm text-[11px] text-error font-bold flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[13px]">schedule</span>
+                          <span>{{ o.duration_str }} (Batas: {{ o.threshold_mins }}m)</span>
+                        </span>
+                      </div>
+
+                      <div class="mt-1.5 text-body-xs font-body-xs text-on-surface-variant flex items-center justify-between">
+                        <span>Sopir: {{ o.driver_nama }} &bull; {{ o.expedisi|truncatechars:18 }}</span>
+                        <span class="font-code-sm text-[10px] text-error">Lewat +{{ o.exceeded_mins }} menit</span>
+                      </div>
+
+                      <div class="mt-1.5 pt-1.5 border-t border-outline-variant/60 flex items-center justify-between text-[11px] font-code-sm text-outline">
+                        <span>Lokasi: {{ o.lane }}</span>
+                        <div class="flex items-center gap-1.5">
+                          <a
+                            href="{% url 'queue_detail' o.entry.pk %}"
+                            class="text-secondary hover:underline font-semibold flex items-center gap-0.5 text-decoration-none"
+                            title="Tindak Lanjuti Antrian"
+                          >
+                            <span>Tindak Lanjuti</span>
+                            <span class="material-symbols-outlined text-[13px]">arrow_forward</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="p-3 bg-surface-container-low text-center text-outline font-code-sm text-body-xs border border-dashed border-outline-variant" style="border-radius: 2px;">
+                  Seluruh antrian berada dalam batas toleransi waktu operasional yang wajar.
+                </div>
+              {% endif %}
+            </div>
+
+          </div>
+        {% else %}
+          <!-- Empty State: Seluruh Operasional Berjalan Normal -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-space-md p-space-sm bg-surface-container-low border border-outline-variant/60" style="border-radius: 2px;">
+            <div class="flex items-center gap-space-md">
+              <div class="w-10 h-10 bg-secondary/15 flex items-center justify-center shrink-0 border border-secondary/30" style="border-radius: 2px;">
+                <span class="material-symbols-outlined text-secondary" style="font-size: 24px;">task_alt</span>
+              </div>
+              <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                  <span class="font-headline-sm text-body-md font-bold text-on-surface">
+                    Seluruh Operasional Berjalan Normal
+                  </span>
+                  <span class="px-1.5 py-0.2 bg-secondary text-on-secondary font-code-sm text-[10px] font-bold uppercase" style="border-radius: 2px;">
+                    NIHIL ANOMALI
+                  </span>
+                </div>
+                <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+                  Tidak ada armada berstatus tertahan (Hold Gate) dan seluruh antrian berada dalam batas waktu wajar (&lt; {{ threshold_waiting }} menit di buffer, &lt; {{ threshold_process }} menit di booth/yard).
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0">
+              <a
+                href="{% url 'queue_list' %}"
+                class="h-7 px-space-sm bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 text-decoration-none"
+                style="border-radius: 2px;"
+              >
+                <span class="material-symbols-outlined text-[14px] text-outline">format_list_bulleted</span>
+                <span>Lihat Tabel Antrian</span>
+              </a>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Distribusi Status Antrian Armada & Ringkasan Performa -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm" style="border-radius: 2px;">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant pb-2 mb-space-sm">
+        <div>
+          <div class="flex items-center gap-space-xs">
+            <span class="material-symbols-outlined text-secondary" style="font-size: 18px;">pie_chart</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Distribusi Status Antrian Hari Ini
+            </span>
+          </div>
+          <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+            Proporsi armada di setiap tahapan alur operasional terminal dari total {{ count_total }} truk terdaftar.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="font-code-sm text-body-xs text-on-surface-variant bg-surface-container px-2 py-1 border border-outline-variant" style="border-radius: 2px;">
+            Rata-rata Waktu Proses: <strong class="text-secondary">{{ avg_process_str }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <!-- Segmented Distribution Progress Bar -->
+      <div class="w-full flex h-2 rounded-none overflow-hidden bg-surface-container my-space-sm border border-outline-variant" style="height: 10px;">
+        {% for stat in status_distribution %}
+          {% if stat.pct > 0 %}
+            <div class="{{ stat.bar_color }} transition-all" style="width: {{ stat.pct }}%;" title="{{ stat.label }}: {{ stat.count }} Truk ({{ stat.pct }}%)"></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Status Pills Breakdown Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-space-sm mt-space-sm">
+        {% for stat in status_distribution %}
+          <div class="p-space-sm bg-surface-container-low border border-outline-variant/70 flex items-center justify-between gap-2" style="border-radius: 2px;">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-outline" style="font-size: 16px;">{{ stat.icon }}</span>
+              <div>
+                <div class="font-body-xs text-body-xs font-semibold text-on-surface">{{ stat.label }}</div>
+                <div class="font-code-sm text-[10px] text-on-surface-variant">{{ stat.pct }}% dari total</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="font-code-md font-bold text-on-surface text-headline-sm">{{ stat.count }}</span>
+              <span class="font-code-sm text-[10px] text-outline d-block">Truk</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Volume & Antrian Truk Per Jam (15 Hours: 06:00 - 20:00) -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm" style="border-radius: 2px;">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant pb-2 mb-space-md">
+        <div>
+          <div class="flex items-center gap-space-xs">
+            <span class="material-symbols-outlined text-secondary" style="font-size: 18px;">bar_chart</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Volume &amp; Throughput Truk Per Jam (06:00 - 20:00)
+            </span>
+          </div>
+          <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+            Puncak kepadatan arus peti kemas terjadi pada pergantian shift sore (15:00 - 17:00 WIB).
+          </p>
+        </div>
+
+        <!-- Legend -->
+        <div class="flex items-center gap-space-md font-code-sm text-on-surface-variant flex-wrap" style="font-size: 11px;">
+          <div class="flex items-center gap-1.5">
+            <span class="bg-secondary inline-block" style="width: 12px; height: 12px;"></span>
+            <span>Volume Normal</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="bg-tertiary-container inline-block" style="width: 12px; height: 12px;"></span>
+            <span>Jam Sibuk (Peak)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="bg-primary inline-block" style="width: 12px; height: 12px;"></span>
+            <span>Saat Ini (Live)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="border-t border-error inline-block" style="width: 16px; height: 2px; border-style: dashed !important;"></span>
+            <span>Batas Kapasitas (130)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Industrial Bar Chart Canvas -->
+      <div class="relative pt-6 pb-2">
+        <!-- Horizontal Threshold Guideline (130 Truk) -->
+        <div class="absolute left-0 right-0 border-b border-error/70 flex items-center justify-end pr-1 pointer-events-none" style="top: 48px; z-index: 10; border-style: dashed !important;">
+          <span class="font-code-sm text-error font-bold bg-surface-container-lowest px-1" style="font-size: 10px;">
+            Batas Kapasitas Normal: 130 Truk/Jam
+          </span>
+        </div>
+
+        <!-- Grid of 15 Columns -->
+        <div class="grid-cols-15 gap-1.5 sm:gap-2 items-end px-2 border-b border-outline-variant" style="height: 224px;">
+          {% for bar in hourly_chart %}
+            <div class="flex flex-col items-center h-full justify-end relative cursor-pointer chart-bar-hover-group">
+              <!-- Floating Tooltip -->
+              <div class="chart-bar-tooltip absolute bg-primary text-on-primary px-2 py-1 font-code-sm rounded shadow-md whitespace-nowrap pointer-events-none" style="top: -40px; z-index: 30; font-size: 11px;">
+                <span class="fw-bold">{{ bar.hour }}</span>: {{ bar.count }} Truk
+                {% if bar.note %}
+                  <span class="d-block text-secondary-fixed" style="font-size: 9px;">{{ bar.note }}</span>
+                {% endif %}
+              </div>
+
+              <!-- Bar Top Readout -->
+              <span class="font-code-sm mb-1 font-semibold {% if bar.is_peak %}text-on-tertiary-container fw-bold{% elif bar.is_live %}text-primary fw-bold{% else %}text-outline{% endif %}" style="font-size: 10px;">
+                {{ bar.count }}
+              </span>
+
+              <!-- Bar Column -->
+              <div
+                class="w-full {{ bar.bar_color }} transition-all relative"
+                style="height: {{ bar.pct }}%; min-height: 2px;"
+              >
+                {% if bar.is_live %}
+                  <span class="absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-circle bg-secondary ring-2 ring-surface-bright animate-ping" style="top: -6px; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%;"></span>
+                {% endif %}
+              </div>
+
+              <!-- Bottom Hour Label -->
+              <span class="font-code-sm mt-2 {% if bar.is_live %}text-primary fw-bold{% else %}text-on-surface-variant{% endif %}" style="font-size: 10px;">
+                {{ bar.hour }}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Antrian Truk Terkini (Live Gate Feed Table) -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm" style="border-radius: 2px;">
+      <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-space-sm">
+        <div class="flex items-center gap-space-xs">
+          <span class="material-symbols-outlined text-secondary" style="font-size: 18px;">density_small</span>
+          <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+            Antrian Truk Terkini (Live Feed Gardu)
+          </span>
+        </div>
+        <a
+          href="{% url 'queue_list' %}"
+          class="font-code-sm text-body-xs text-secondary font-semibold hover:underline flex items-center gap-1 cursor-pointer text-decoration-none"
+        >
+          <span>Lihat Semua ({{ count_total }} Truk)</span>
+          <span class="material-symbols-outlined" style="font-size: 14px;">arrow_forward</span>
+        </a>
+      </div>
+
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table class="w-full text-left border-collapse font-body-sm text-body-sm" style="min-width: 900px;">
+          <thead>
+            <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none">
+              <th class="py-2 px-2.5" style="width: 95px;">No. Antri</th>
+              <th class="py-2 px-2.5" style="width: 140px;">No. Polisi</th>
+              <th class="py-2 px-2.5" style="width: 180px;">Pengemudi</th>
+              <th class="py-2 px-2.5" style="width: 200px;">Kontainer / Ukuran</th>
+              <th class="py-2 px-2.5" style="width: 170px;">Status Antrian</th>
+              <th class="py-2 px-2.5" style="width: 130px;">Waktu Masuk</th>
+              <th class="py-2 px-2.5 text-end pe-3" style="width: 140px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for item in active_list %}
+              <tr class="{% if item.entry.status == 'TERTAHAN' %}bg-tertiary-container/10 hover:bg-tertiary-container/20{% else %}hover:bg-surface-container{% endif %} cursor-pointer transition-colors">
+                <td class="py-2 px-2.5 font-code-sm fw-bold {% if item.entry.status == 'PROSES' %}text-secondary{% elif item.entry.status == 'TERTAHAN' %}text-on-tertiary-container{% else %}text-on-surface{% endif %}">
+                  <a href="{% url 'gate_ticket' item.entry.pk %}" class="text-decoration-none {% if item.entry.status == 'PROSES' %}text-secondary{% elif item.entry.status == 'TERTAHAN' %}text-on-tertiary-container{% else %}text-on-surface{% endif %}" title="Buka Tiket Antrian">
+                    #{{ item.entry.no_antrian }}
+                  </a>
+                </td>
+                <td class="py-2 px-2.5">
+                  <div class="font-code-md fw-bold text-on-surface">{{ item.entry.truck.no_polisi }}</div>
+                  <div class="text-on-surface-variant" style="font-size: 10px;">{{ item.entry.truck.get_konfigurasi_display }}</div>
+                </td>
+                <td class="py-2 px-2.5">
+                  <div class="fw-semibold text-on-surface">{{ item.entry.driver.nama }}</div>
+                  <div class="text-on-surface-variant text-truncate" style="font-size: 10px; max-width: 170px;">
+                    {{ item.entry.truck.expedisi.nama_perusahaan }}
+                  </div>
+                </td>
+                <td class="py-2 px-2.5 font-code-sm text-on-surface">
+                  {% if item.entry.container %}
+                    <span class="fw-bold">{{ item.entry.container.no_kontainer }}</span>
+                    <span class="text-on-surface-variant d-block" style="font-size: 10px;">
+                      ({{ item.entry.container.ukuran }}' {{ item.entry.container.tipe }})
+                    </span>
+                  {% else %}
+                    <span class="text-outline fst-italic">Chassis Kosong</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 px-2.5">
+                  {% if item.entry.status == 'PROSES' %}
+                    <span class="px-1.5 py-0.5 bg-secondary-fixed text-on-secondary-fixed font-label-caps font-bold" style="font-size: 10px; border-radius: 2px;">
+                      PROSES {{ item.entry.gerbang_lane|default:"LANE 03" }}
+                    </span>
+                  {% elif item.entry.status == 'TERTAHAN' %}
+                    <span class="px-1.5 py-0.5 bg-tertiary-container text-on-tertiary-container font-label-caps font-bold" style="font-size: 10px; border-radius: 2px;">
+                      TERTAHAN ({{ item.entry.alasan_tertahan|default:"HOLD"|truncatechars:14 }})
+                    </span>
+                  {% elif item.entry.status == 'MENUNGGU' %}
+                    <span class="px-1.5 py-0.5 bg-surface-container text-outline font-label-caps font-bold" style="font-size: 10px; border-radius: 2px;">
+                      MENUNGGU BUFFER
+                    </span>
+                  {% else %}
+                    <span class="px-1.5 py-0.5 bg-surface-container text-outline font-label-caps font-bold" style="font-size: 10px; border-radius: 2px;">
+                      {{ item.entry.status }}
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="py-2 px-2.5 font-code-sm text-on-surface">
+                  <div>{{ item.entry.waktu_masuk|date:"H:i:s" }}</div>
+                  <div class="text-on-surface-variant" style="font-size: 10px;">{{ item.duration }}</div>
+                </td>
+                <td class="py-2 px-2.5 text-end pe-3">
+                  <div class="d-inline-flex align-items-center gap-1.5">
+                    {% if item.entry.status == 'MENUNGGU' %}
+                      <form method="POST" action="{% url 'queue_process_action' item.entry.pk %}" class="d-inline m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="target_status" value="PROSES">
+                        <button type="submit" class="h-6 px-2 bg-secondary text-on-secondary font-code-sm fw-bold hover:bg-primary border-0 cursor-pointer" style="font-size: 11px; border-radius: 2px;" title="Mulai Proses di Booth/Gardu">
+                          Panggil
+                        </button>
+                      </form>
+                    {% elif item.entry.status == 'PROSES' %}
+                      <form method="POST" action="{% url 'queue_process_action' item.entry.pk %}" class="d-inline m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="target_status" value="SELESAI">
+                        <button type="submit" class="h-6 px-2 bg-secondary text-on-secondary font-code-sm fw-bold hover:bg-primary border-0 cursor-pointer" style="font-size: 11px; border-radius: 2px;" title="Selesaikan Penanganan di Yard">
+                          Selesai
+                        </button>
+                      </form>
+                    {% elif item.entry.status == 'TERTAHAN' %}
+                      <form method="POST" action="{% url 'queue_process_action' item.entry.pk %}" class="d-inline m-0">
+                        {% csrf_token %}
+                        <input type="hidden" name="target_status" value="PROSES">
+                        <button type="submit" class="h-6 px-2 bg-error hover:bg-on-error-container text-on-error font-code-sm fw-bold border-0 cursor-pointer" style="font-size: 11px; border-radius: 2px;" title="Inspeksi / Lanjutkan Penanganan">
+                          Inspeksi
+                        </button>
+                      </form>
+                    {% endif %}
+
+                    <a href="{% url 'gate_ticket' item.entry.pk %}" target="_blank" class="h-6 px-1.5 bg-surface-container-high hover:bg-surface-container text-on-surface font-code-sm flex items-center justify-center border border-outline-variant text-decoration-none cursor-pointer" style="border-radius: 2px;" title="Cetak Tiket EIR">
+                      <span class="material-symbols-outlined" style="font-size: 14px;">print</span>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="text-center py-5 text-on-surface-variant">
+                  <div class="flex flex-col items-center justify-center gap-2 py-4">
+                    <span class="material-symbols-outlined text-secondary" style="font-size: 40px;">task_alt</span>
+                    <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                      Tidak Ada Antrian Aktif di Terminal
+                    </span>
+                    <p class="font-body-xs text-body-xs text-on-surface-variant max-w-md mb-2">
+                      Seluruh armada truk telah selesai diproses atau keluar gerbang. Daftarkan armada baru untuk memulai alur antrian.
+                    </p>
+                    <a
+                      href="{% url 'gate_in' %}"
+                      class="h-8 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold shadow-sm transition-colors cursor-pointer text-decoration-none"
+                      style="border-radius: 2px;"
+                    >
+                      <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                      <span>+ DAFTARKAN TRUK MASUK</span>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Aktivitas Terbaru Gate In / Gate Out (Realtime Audit Feed) -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm" style="border-radius: 2px;">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-outline-variant pb-2 mb-space-sm">
+        <div>
+          <div class="flex items-center gap-space-xs">
+            <span class="material-symbols-outlined text-secondary" style="font-size: 18px;">history</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Aktivitas Terbaru Gate In &amp; Gate Out
+            </span>
+          </div>
+          <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+            Log riwayat perpindahan status antrian, mutasi gerbang, dan pencatatan operator terkini secara real-time.
+          </p>
+        </div>
+
+        <span class="font-code-sm text-body-xs text-outline font-semibold">
+          10 Aktivitas Terakhir
+        </span>
+      </div>
+
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table class="w-full text-left border-collapse font-body-sm text-body-sm" style="min-width: 850px;">
+          <thead>
+            <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none">
+              <th class="py-2 px-2.5" style="width: 100px;">Waktu</th>
+              <th class="py-2 px-2.5" style="width: 120px;">Aktivitas</th>
+              <th class="py-2 px-2.5" style="width: 110px;">No. Antri</th>
+              <th class="py-2 px-2.5" style="width: 150px;">No. Polisi</th>
+              <th class="py-2 px-2.5" style="width: 160px;">Kontainer</th>
+              <th class="py-2 px-2.5" style="width: 160px;">Petugas / Gardu</th>
+              <th class="py-2 px-2.5 pe-3">Keterangan / Mutasi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for act in recent_activities %}
+              <tr class="hover:bg-surface-container transition-colors">
+                <td class="py-2 px-2.5 font-code-sm text-on-surface-variant whitespace-nowrap">
+                  <div class="fw-semibold text-on-surface">{{ act.timestamp }}</div>
+                  <div class="text-[10px] text-outline">{{ act.date }} WIB</div>
+                </td>
+                <td class="py-2 px-2.5">
+                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 {{ act.badge_class }} font-label-caps font-bold" style="font-size: 10px; border-radius: 2px;">
+                    <span class="material-symbols-outlined" style="font-size: 12px;">{{ act.icon }}</span>
+                    <span>{{ act.activity_type }}</span>
+                  </span>
+                </td>
+                <td class="py-2 px-2.5 font-code-sm fw-bold text-on-surface">
+                  {% if act.log.queue_entry %}
+                    <a href="{% url 'gate_ticket' act.log.queue_entry.pk %}" class="text-decoration-none text-secondary hover:underline" title="Lihat Tiket">
+                      #{{ act.no_antrian }}
+                    </a>
+                  {% else %}
+                    #{{ act.no_antrian }}
+                  {% endif %}
+                </td>
+                <td class="py-2 px-2.5">
+                  <div class="font-code-md fw-bold text-on-surface">{{ act.truck_plate }}</div>
+                  <div class="text-on-surface-variant text-truncate" style="font-size: 10px; max-width: 150px;">{{ act.expedisi }}</div>
+                </td>
+                <td class="py-2 px-2.5 font-code-sm text-on-surface">
+                  {% if act.container_no %}
+                    <span class="fw-bold">{{ act.container_no }}</span>
+                  {% else %}
+                    <span class="text-outline fst-italic">Chassis Kosong</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 px-2.5 font-body-sm text-on-surface">
+                  <div class="fw-semibold">{{ act.operator_name }}</div>
+                  <div class="text-[10px] text-outline font-code-sm">{{ act.lane }}</div>
+                </td>
+                <td class="py-2 px-2.5 text-on-surface-variant font-code-sm pe-3" style="font-size: 11px;">
+                  {% if act.log.status_lama %}
+                    <span class="text-outline">{{ act.log.get_status_lama_display }}</span>
+                    <span class="material-symbols-outlined align-middle text-outline" style="font-size: 12px;">arrow_forward</span>
+                    <strong class="text-on-surface">{{ act.log.get_status_baru_display }}</strong>
+                  {% else %}
+                    <strong class="text-on-surface">{{ act.log.get_status_baru_display }}</strong>
+                  {% endif %}
+                  {% if act.keterangan and act.keterangan != '-' %}
+                    <div class="text-[10px] text-on-surface-variant mt-0.5">{{ act.keterangan }}</div>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="text-center py-4 text-on-surface-variant">
+                  <div class="flex flex-col items-center justify-center gap-1.5 py-3">
+                    <span class="material-symbols-outlined text-outline" style="font-size: 32px;">pending_actions</span>
+                    <span class="font-body-sm text-on-surface font-semibold">Belum Ada Aktivitas Gate Hari Ini</span>
+                    <p class="font-body-xs text-outline max-w-sm mb-0">
+                      Setiap aktivitas registrasi truk masuk, pemanggilan antrian, hold, hingga gate out akan tercatat secara otomatis di sini.
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

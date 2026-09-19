@@ -1,0 +1,58 @@
+# Git
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Secrets & Environment variables (never bake into Docker image)
+.env
+*.env
+*.env.*
+!.env.example
+
+# Local databases & logs
+*.sqlite3
+db.sqlite3
+*.log
+
+# Static & Media outputs (collected during build or persistent volumes)
+staticfiles/
+media/
+!media/.gitkeep
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Temporary & Testing artifacts
+scratch/
+stitch_reference/
+.pytest_cache/
+.coverage
+htmlcov/

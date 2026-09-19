@@ -1,0 +1,720 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detail Antrian #{{ queue.no_antrian }} ({{ queue.truck.no_polisi }}) — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. Top Sub-Header & Breadcrumb Bar (Stitch Spec) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+    <div class="flex items-center gap-space-xs font-code-sm text-code-sm overflow-hidden flex-wrap">
+      <a
+        href="{% url 'queue_list' %}"
+        class="text-secondary font-semibold hover:underline flex items-center gap-1 cursor-pointer text-decoration-none"
+      >
+        <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+        <span>Antrian &amp; Gate In / Out</span>
+      </a>
+      <span class="text-outline">/</span>
+      <span class="text-outline">Inbound Queue</span>
+      <span class="text-outline">/</span>
+      <span class="text-on-surface font-bold">#{{ queue.no_antrian }} ({{ queue.gerbang_lane|upper }})</span>
+    </div>
+
+    <!-- Action Controls & Quick Jump -->
+    <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+      <!-- Quick Search / Jump Form -->
+      <form method="GET" action="{% url 'queue_detail' queue.pk %}" class="flex items-center gap-1 my-0">
+        <div class="relative flex items-center">
+          <span class="material-symbols-outlined absolute left-2 text-outline text-[16px]">search</span>
+          <input
+            type="text"
+            name="q"
+            placeholder="Lompat Antrian/Plat..."
+            class="h-8 pl-7 pr-2 bg-surface-container-lowest border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary uppercase"
+            style="border-radius: 2px; width: 170px;"
+            autocomplete="off"
+            title="Ketik nomor antrian (misal Q-0001) atau plat nomor polisi untuk melompat langsung"
+          />
+        </div>
+        <button
+          type="submit"
+          class="h-8 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 cursor-pointer"
+          style="border-radius: 2px;"
+          title="Cari dan buka antrian"
+        >
+          <span>Lompat</span>
+        </button>
+      </form>
+
+      <!-- Prev / Next Navigation -->
+      <div class="flex items-center gap-0.5">
+        {% if prev_queue %}
+          <a
+            href="{% url 'queue_detail' prev_queue.pk %}"
+            class="h-8 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 text-decoration-none"
+            style="border-radius: 2px;"
+            title="Antrian Sebelumnya: #{{ prev_queue.no_antrian }} ({{ prev_queue.truck.no_polisi }})"
+          >
+            <span class="material-symbols-outlined text-[15px]">chevron_left</span>
+            <span class="hidden sm:inline">Prev</span>
+          </a>
+        {% else %}
+          <span class="h-8 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm flex items-center opacity-50 cursor-not-allowed" style="border-radius: 2px;">
+            <span class="material-symbols-outlined text-[15px]">chevron_left</span>
+            <span class="hidden sm:inline">Prev</span>
+          </span>
+        {% endif %}
+
+        {% if next_queue %}
+          <a
+            href="{% url 'queue_detail' next_queue.pk %}"
+            class="h-8 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 text-decoration-none"
+            style="border-radius: 2px;"
+            title="Antrian Berikutnya: #{{ next_queue.no_antrian }} ({{ next_queue.truck.no_polisi }})"
+          >
+            <span class="hidden sm:inline">Next</span>
+            <span class="material-symbols-outlined text-[15px]">chevron_right</span>
+          </a>
+        {% else %}
+          <span class="h-8 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm flex items-center opacity-50 cursor-not-allowed" style="border-radius: 2px;">
+            <span class="hidden sm:inline">Next</span>
+            <span class="material-symbols-outlined text-[15px]">chevron_right</span>
+          </span>
+        {% endif %}
+      </div>
+      <a
+        href="{% url 'gate_ticket' queue.pk %}?print=1"
+        target="_blank"
+        id="btnPrintTicket"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        title="Buka slip cetak tiket EIR di tab baru"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">print</span>
+        <span>Cetak Ulang Tiket EIR [Ctrl+P]</span>
+      </a>
+
+      <button
+        type="button"
+        onclick="triggerIntercom();"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer"
+        title="Panggil pengemudi via pengeras suara gardu"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">mic</span>
+        <span>Panggil Interkom [F8]</span>
+      </button>
+
+      {% if queue.status == 'PROSES' %}
+        <button
+          type="button"
+          onclick="openDetailHoldModal();"
+          class="h-8 px-space-sm bg-tertiary-container text-on-tertiary-container hover:bg-tertiary border border-on-tertiary-container/30 font-code-sm text-code-sm flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+          title="Tahan armada untuk pemeriksaan dokumen/fisik"
+        >
+          <span class="material-symbols-outlined text-[16px]">warning</span>
+          <span>Lapor Masalah / Hold [F4]</span>
+        </button>
+      {% endif %}
+
+      <a
+        href="{% url 'queue_list' %}"
+        class="h-8 px-space-sm bg-surface-container text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+      >
+        <span class="material-symbols-outlined text-[16px]">close</span>
+        <span>Kembali [Esc]</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="p-space-md flex flex-col gap-space-md max-w-6xl mx-auto w-full">
+
+    <!-- 2. Primary Operational Cockpit Card (Stitch Spec) -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm">
+      <div class="flex flex-col lg:flex-row justify-between items-start gap-space-md">
+        <!-- Truck & Cargo Identification -->
+        <div class="flex flex-col gap-space-xs flex-1">
+          <div class="flex items-center gap-space-sm flex-wrap">
+            <span class="px-2.5 py-1 bg-primary text-on-primary font-code-lg text-headline-sm font-bold tracking-wider border border-outline">
+              {{ queue.truck.no_polisi }}
+            </span>
+            {% if queue.container %}
+              <span class="px-2 py-0.5 bg-inverse-surface text-inverse-on-surface font-code-md text-code-md font-bold">
+                {{ queue.container.no_kontainer }}
+              </span>
+              <span class="font-code-sm text-code-sm text-on-surface-variant">
+                {{ queue.container.ukuran|default:"40" }}' {{ queue.container.tipe|default:"DRY" }} &bull; {{ queue.container.shipping_line|default:"DOMESTIC CARRIER" }}
+              </span>
+            {% else %}
+              <span class="px-2 py-0.5 bg-surface-container-high text-outline font-code-sm text-code-sm">
+                CHASSIS KOSONG (HEAD TRUCK ONLY)
+              </span>
+            {% endif %}
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-space-md mt-2 pt-2 border-t border-outline-variant/60 font-body-sm text-body-sm">
+            <div>
+              <span class="font-label-caps text-label-caps text-outline uppercase block">TOKEN ANTRIAN:</span>
+              <span class="font-code-md text-code-md font-bold text-secondary">#{{ queue.no_antrian }}</span>
+            </div>
+            <div>
+              <span class="font-label-caps text-label-caps text-outline uppercase block">PENGEMUDI:</span>
+              <span class="font-body-sm text-on-surface font-semibold">{{ queue.driver.nama }}</span>
+              <span class="block font-code-sm text-[11px] text-outline">
+                SIM: {{ queue.driver.no_sim|default:"-" }} &bull; HP: {{ queue.driver.no_hp|default:"-" }}
+              </span>
+            </div>
+            <div>
+              <span class="font-label-caps text-label-caps text-outline uppercase block">PERUSAHAAN:</span>
+              <span class="font-body-sm text-on-surface font-semibold">{{ queue.truck.expedisi.nama_perusahaan|default:"-" }}</span>
+              <span class="block font-code-sm text-[11px] text-outline">{{ queue.truck.get_konfigurasi_display }}</span>
+            </div>
+            <div>
+              <span class="font-label-caps text-label-caps text-outline uppercase block">STATUS DOKUMEN:</span>
+              {% if queue.container and queue.container.ref_dokumen %}
+                <span class="inline-flex items-center gap-1 font-label-caps text-label-caps px-1.5 py-0.5 bg-primary-fixed text-on-primary-fixed font-bold">
+                  <span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+                  {{ queue.container.ref_dokumen|truncatechars:18 }}
+                </span>
+              {% else %}
+                <span class="inline-flex items-center gap-1 font-label-caps text-label-caps px-1.5 py-0.5 bg-surface-container text-outline font-bold">
+                  <span class="material-symbols-outlined text-[14px]">check</span>
+                  DOKUMEN VALID
+                </span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Current Operational Status Indicator -->
+        <div class="flex flex-col items-start lg:items-end bg-surface-container-low p-space-sm border border-outline-variant shrink-0 w-full lg:w-auto">
+          <span class="font-label-caps text-label-caps text-outline uppercase">
+            STATUS OPERASIONAL GERBANG
+          </span>
+          <div class="flex items-center gap-1.5 my-1">
+            <span class="w-2.5 h-2.5 rounded-full {% if queue.status == 'PROSES' %}bg-secondary animate-ping{% elif queue.status == 'TERTAHAN' %}bg-tertiary-container animate-pulse{% elif queue.status == 'SELESAI' %}bg-primary-fixed-dim{% elif queue.status == 'KELUAR' %}bg-outline{% else %}bg-secondary{% endif %}"></span>
+            <span class="font-code-lg text-headline-sm font-bold {% if queue.status == 'TERTAHAN' %}text-on-tertiary-container{% else %}text-secondary{% endif %}">
+              {% if queue.status == 'MENUNGGU' %}
+                MENUNGGU DI BUFFER
+              {% elif queue.status == 'PROSES' %}
+                SEDANG PROSES ({{ queue.gerbang_lane|upper }})
+              {% elif queue.status == 'TERTAHAN' %}
+                TERTAHAN (HOLD GATE)
+              {% elif queue.status == 'SELESAI' %}
+                SELESAI GATE IN &rarr; YARD
+              {% elif queue.status == 'KELUAR' %}
+                KELUAR TERMINAL (GATE OUT)
+              {% endif %}
+            </span>
+          </div>
+
+          <span class="font-code-sm text-code-sm text-on-surface-variant">
+            Waktu Masuk: {{ queue.waktu_masuk|date:"H:i:s" }} ({{ dwell_time }} lalu)
+          </span>
+          <span class="font-code-sm text-code-sm text-outline">
+            Gate In Barrier: {% if queue.status == 'SELESAI' or queue.status == 'KELUAR' %}<span class="text-secondary font-bold">TERBUKA (PASS)</span>{% else %}STANDBY DIBUKA{% endif %}
+          </span>
+
+          <!-- Main Status Transition Actions -->
+          <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+            {% if queue.status == 'MENUNGGU' %}
+              <form method="POST" action="{% url 'queue_process_action' queue.pk %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="target_status" value="PROSES">
+                <input type="hidden" name="next" value="{% url 'queue_detail' queue.pk %}">
+                <button
+                  type="submit"
+                  id="btnPrimaryAction"
+                  class="h-8 px-space-md bg-secondary text-on-secondary hover:bg-primary font-code-md text-code-md font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer border-0"
+                >
+                  <span class="material-symbols-outlined text-[16px]">campaign</span>
+                  <span>Panggil Armada ke Booth [Enter]</span>
+                </button>
+              </form>
+
+            {% elif queue.status == 'PROSES' %}
+              <form method="POST" action="{% url 'queue_process_action' queue.pk %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="target_status" value="SELESAI">
+                <input type="hidden" name="next" value="{% url 'queue_detail' queue.pk %}">
+                <button
+                  type="submit"
+                  id="btnPrimaryAction"
+                  class="h-8 px-space-md bg-secondary text-on-secondary hover:bg-primary font-code-md text-code-md font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer border-0"
+                >
+                  <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                  <span>Tandai Selesai &amp; Gate In [Enter]</span>
+                </button>
+              </form>
+              <button
+                type="button"
+                onclick="openDetailHoldModal();"
+                class="h-8 px-space-sm bg-tertiary-container text-on-tertiary-container hover:bg-tertiary font-code-sm text-code-sm font-semibold flex items-center gap-1 cursor-pointer border-0"
+              >
+                <span>Hold [F4]</span>
+              </button>
+
+            {% elif queue.status == 'TERTAHAN' %}
+              <form method="POST" action="{% url 'queue_process_action' queue.pk %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="target_status" value="PROSES">
+                <input type="hidden" name="next" value="{% url 'queue_detail' queue.pk %}">
+                <button
+                  type="submit"
+                  id="btnPrimaryAction"
+                  class="h-8 px-space-md bg-secondary text-on-secondary hover:bg-primary font-code-md text-code-md font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer border-0"
+                >
+                  <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+                  <span>Lanjutkan Proses Antrian [Enter]</span>
+                </button>
+              </form>
+
+            {% elif queue.status == 'SELESAI' %}
+              <form method="POST" action="{% url 'queue_process_action' queue.pk %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="target_status" value="KELUAR">
+                <input type="hidden" name="next" value="{% url 'queue_detail' queue.pk %}">
+                <button
+                  type="submit"
+                  id="btnPrimaryAction"
+                  class="h-8 px-space-md bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer border-0"
+                >
+                  <span class="material-symbols-outlined text-[16px]">door_open</span>
+                  <span>Tandai Gate Out / Keluar [Enter]</span>
+                </button>
+              </form>
+
+            {% elif queue.status == 'KELUAR' %}
+              <span class="h-8 px-space-md bg-surface-container text-outline font-code-sm text-code-sm font-bold flex items-center gap-1 border border-outline-variant">
+                <span class="material-symbols-outlined text-[16px]">check</span>
+                <span>Proses Selesai &bull; Armada Telah Keluar</span>
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- 4-Step Operational Flow Indicator (Stitch Spec) -->
+      <div class="mt-space-md pt-space-md border-t border-outline-variant">
+        <span class="font-label-caps text-label-caps text-outline uppercase block mb-2">
+          ALUR STATUS PROSES GERBANG INBOUND
+        </span>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <!-- Step 1: Menunggu di Buffer -->
+          <div
+            class="p-2 border flex flex-col justify-between transition-colors {% if step_1_active %}bg-secondary text-on-secondary border-secondary font-semibold{% elif step_1_done %}bg-surface-container-high border-outline-variant text-on-surface{% else %}bg-surface-container-low border-outline-variant text-outline{% endif %}"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-code-sm text-code-sm font-bold">1. Menunggu di Buffer</span>
+              <span class="material-symbols-outlined text-[16px]">{% if step_1_done %}check{% else %}hourglass_top{% endif %}</span>
+            </div>
+            <span class="font-code-sm text-body-xs {% if step_1_active %}text-on-secondary/80{% else %}text-outline{% endif %} mt-1">
+              {{ queue.waktu_masuk|date:"H:i:s" }} - Terdaftar
+            </span>
+          </div>
+
+          <!-- Step 2: Sedang di Gerbang -->
+          <div
+            class="p-2 border flex flex-col justify-between transition-colors {% if step_2_active %}bg-secondary text-on-secondary border-secondary font-semibold{% elif step_2_done %}bg-surface-container-high border-outline-variant text-on-surface{% else %}bg-surface-container-low border-outline-variant text-outline{% endif %}"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-code-sm text-code-sm font-bold">2. Sedang di Gerbang</span>
+              <span class="material-symbols-outlined text-[16px] {% if step_2_active %}animate-spin{% endif %}">
+                {% if step_2_done %}check{% elif step_2_active %}sync{% else %}schedule{% endif %}
+              </span>
+            </div>
+            <span class="font-code-sm text-body-xs {% if step_2_active %}text-on-secondary/80{% else %}text-outline{% endif %} mt-1">
+              {% if queue.status == 'TERTAHAN' %}
+                <span class="text-tertiary-fixed font-bold">HOLD: {{ queue.alasan_tertahan|truncatechars:18 }}</span>
+              {% elif queue.waktu_mulai_proses %}
+                {{ queue.waktu_mulai_proses|date:"H:i:s" }} - Verifikasi &amp; WIM
+              {% else %}
+                Menunggu Giliran Booth
+              {% endif %}
+            </span>
+          </div>
+
+          <!-- Step 3: Menuju Lapangan -->
+          <div
+            class="p-2 border flex flex-col justify-between transition-colors {% if step_3_active %}bg-secondary text-on-secondary border-secondary font-semibold{% elif step_3_done %}bg-surface-container-high border-outline-variant text-on-surface{% else %}bg-surface-container-low border-outline-variant text-outline{% endif %}"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-code-sm text-code-sm font-bold">3. Menuju Lapangan</span>
+              <span class="material-symbols-outlined text-[16px]">{% if step_3_done %}check{% else %}arrow_forward{% endif %}</span>
+            </div>
+            <span class="font-code-sm text-body-xs {% if step_3_active %}text-on-secondary/80{% else %}text-outline{% endif %} mt-1">
+              {% if queue.waktu_selesai %}
+                {{ queue.waktu_selesai|date:"H:i:s" }} - Target: Blok {{ queue.alokasi_blok|default:"C-04" }}
+              {% else %}
+                Target: Blok {{ queue.alokasi_blok|default:"C-04" }}
+              {% endif %}
+            </span>
+          </div>
+
+          <!-- Step 4: Selesai Operasi / Gate Out -->
+          <div
+            class="p-2 border flex flex-col justify-between transition-colors {% if step_4_active %}bg-secondary text-on-secondary border-secondary font-semibold{% elif step_4_done %}bg-surface-container-high border-outline-variant text-on-surface{% else %}bg-surface-container-low border-outline-variant text-outline{% endif %}"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-code-sm text-code-sm font-bold">4. Selesai Operasi</span>
+              <span class="material-symbols-outlined text-[16px]">flag</span>
+            </div>
+            <span class="font-code-sm text-body-xs {% if step_4_active %}text-on-secondary/80{% else %}text-outline{% endif %} mt-1">
+              {% if queue.waktu_keluar %}
+                {{ queue.waktu_keluar|date:"H:i:s" }} - Gate Out
+              {% else %}
+                Estimasi Penyelesaian Operasi
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Two Column Layout: Left Yard Allocation & Manifest, Right Audit History -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+      <!-- Left Column (7 cols): Data Kontainer & Alokasi Lapangan -->
+      <div class="lg:col-span-7 flex flex-col gap-space-md">
+        <!-- Yard Target HUD Box -->
+        <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm">
+          <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-space-sm">
+            <div class="flex items-center gap-space-xs">
+              <span class="material-symbols-outlined text-[18px] text-secondary">grid_view</span>
+              <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Alokasi Lapangan Penumpukan (Yard Target)
+              </span>
+            </div>
+            <span class="font-code-sm text-body-xs text-outline">
+              ZONE INBOUND 01
+            </span>
+          </div>
+
+          <!-- Yard Graphic HUD (Stitch Spec) -->
+          <div class="bg-primary text-on-primary p-space-md border border-primary-container flex flex-col sm:flex-row items-center justify-between gap-space-md">
+            <div class="flex flex-col">
+              <span class="font-label-caps text-label-caps text-on-primary-container uppercase">TARGET BLOK &amp; BAY:</span>
+              <div class="font-code-lg text-headline-xl font-bold tracking-tight text-secondary-fixed mt-1">
+                {{ queue.alokasi_blok|default:"BLOK C-04" }}
+              </div>
+              <span class="font-code-md text-code-md text-on-primary font-semibold">
+                BAY {{ queue.alokasi_bay|default:"12" }} &bull; ROW {{ queue.alokasi_row|default:"03" }} &bull; TIER {{ queue.alokasi_tier|default:"3" }}
+              </span>
+            </div>
+
+            <div class="h-16 w-px bg-primary-container hidden sm:block"></div>
+
+            <div class="flex flex-col text-left sm:text-right font-code-sm text-code-sm">
+              <span class="font-label-caps text-label-caps text-on-primary-container uppercase">ALAT BONGKAR-MUAT:</span>
+              <span class="font-bold text-on-primary text-body-md mt-0.5">RTG Crane 04</span>
+              <span class="text-on-primary-container">Operator: D. Suparman</span>
+              <span class="text-secondary-fixed text-[11px] font-semibold mt-1">Status: SIAP OPERASI</span>
+            </div>
+          </div>
+
+          <!-- Detail Spesifikasi Muatan (Tabel 2 Kolom) -->
+          <div class="mt-space-md">
+            <span class="font-label-caps text-label-caps text-outline uppercase block mb-2">
+              SPESIFIKASI DAN MANIFEST KONTAINER
+            </span>
+            <table class="w-full text-left font-body-sm text-body-sm border border-outline-variant">
+              <tbody class="divide-y divide-outline-variant">
+                <tr class="bg-surface-container-low">
+                  <td className="py-2 px-space-sm font-semibold text-outline w-1/3" style="width: 35%;">Ukuran / Tipe ISO</td>
+                  <td className="py-2 px-space-sm font-code-sm text-on-surface font-bold">
+                    {% if queue.container %}
+                      {{ queue.container.get_ukuran_display }} &bull; {{ queue.container.get_tipe_display }}
+                    {% else %}
+                      Chassis Kosong
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-space-sm font-semibold text-outline">Nomor Segel Pelayaran</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface">
+                    {{ queue.container.seal_number|default:"Tidak Ada Segel / Empty" }}
+                  </td>
+                </tr>
+                <tr class="bg-surface-container-low">
+                  <td class="py-2 px-space-sm font-semibold text-outline">Berat Kotor (WIM Scale)</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface font-bold text-secondary">
+                    {% if queue.container and queue.container.berat_kotor %}
+                      {{ queue.container.berat_kotor }} KG
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-space-sm font-semibold text-outline">Dokumen Referensi (DO/SPPB)</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface">
+                    {{ queue.container.ref_dokumen|default:"-" }}
+                  </td>
+                </tr>
+                <tr class="bg-surface-container-low">
+                  <td class="py-2 px-space-sm font-semibold text-outline">Status VGM (SOLAS)</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface font-bold text-secondary">
+                    {{ queue.container.status_vgm|default:"VERIFIED ONLINE" }}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-2 px-space-sm font-semibold text-outline">Tipe Pergerakan Cargo</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface">
+                    {{ queue.container.get_kategori_display|default:"IMPORT FULL" }}
+                  </td>
+                </tr>
+                <tr class="bg-surface-container-low">
+                  <td class="py-2 px-space-sm font-semibold text-outline">Jalur Gerbang &amp; Booth</td>
+                  <td class="py-2 px-space-sm font-code-sm text-on-surface">
+                    {{ queue.gerbang_lane }} &bull; {{ queue.booth }}
+                  </td>
+                </tr>
+                {% if queue.catatan %}
+                  <tr>
+                    <td class="py-2 px-space-sm font-semibold text-outline">Catatan Khusus</td>
+                    <td class="py-2 px-space-sm font-body-sm text-on-surface">
+                      {{ queue.catatan }}
+                    </td>
+                  </tr>
+                {% endif %}
+                {% if queue.alasan_tertahan %}
+                  <tr class="bg-tertiary-container/10">
+                    <td class="py-2 px-space-sm font-bold text-error">Alasan Tertahan (Hold)</td>
+                    <td class="py-2 px-space-sm font-code-sm text-error font-bold">
+                      {{ queue.alasan_tertahan }}
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Telemetri Sensor Gerbang Inbound -->
+          <div class="mt-space-md pt-space-sm border-t border-outline-variant">
+            <span class="font-label-caps text-label-caps text-outline uppercase block mb-2">
+              TELEMETRI SENSOR GARDU GERBANG ({{ queue.gerbang_lane|upper }})
+            </span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 font-code-sm text-code-sm">
+              <div class="bg-surface-container p-2 border border-outline-variant">
+                <span class="font-label-caps text-label-caps text-outline uppercase block">OCR ANPR:</span>
+                <span class="font-bold text-on-surface text-body-sm">{{ queue.truck.no_polisi }} (99.4%)</span>
+                <span class="text-[10px] text-secondary font-semibold block mt-0.5">MATCHED CAMERA DEPAN</span>
+              </div>
+              <div class="bg-surface-container p-2 border border-outline-variant">
+                <span class="font-label-caps text-label-caps text-outline uppercase block">WIM SCALE:</span>
+                <span class="font-bold text-on-surface text-body-sm">
+                  {% if queue.container and queue.container.berat_kotor %}{{ queue.container.berat_kotor }} KG{% else %}TARE STANDBY{% endif %}
+                </span>
+                <span class="text-[10px] text-primary font-semibold block mt-0.5">NORMAL PASSED</span>
+              </div>
+              <div class="bg-surface-container p-2 border border-outline-variant">
+                <span class="font-label-caps text-label-caps text-outline uppercase block">LOOP SENSOR:</span>
+                <span class="font-bold text-on-surface text-body-sm">TRUCK PRESENT</span>
+                <span class="text-[10px] text-outline block mt-0.5">LANE: {{ queue.gerbang_lane }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column (5 cols): Log Riwayat Stempel Waktu (Timestamp Audit) -->
+      <div class="lg:col-span-5 flex flex-col gap-space-md">
+        <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm">
+          <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-space-sm">
+            <div class="flex items-center gap-space-xs">
+              <span class="material-symbols-outlined text-[18px] text-secondary">history</span>
+              <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Stempel Waktu &amp; Audit Log
+              </span>
+            </div>
+            <span class="font-code-sm text-body-xs text-outline">
+              {{ status_logs|length }} Catatan
+            </span>
+          </div>
+
+          <!-- Vertical Timestamp Audit Stream -->
+          <div class="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant font-body-sm">
+            {% for log in status_logs %}
+              <div class="relative">
+                <span class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full {% if forloop.last %}bg-secondary ring-4 ring-secondary-fixed{% elif log.status_baru == 'TERTAHAN' %}bg-error ring-4 ring-error-container/40{% else %}bg-primary-container{% endif %}"></span>
+                <div class="flex items-baseline justify-between">
+                  <span class="font-code-sm text-code-sm font-bold text-secondary">{{ log.timestamp|date:"H:i:s" }} WIB</span>
+                  <span class="font-label-caps text-label-caps text-outline uppercase">
+                    {{ log.get_status_baru_display|upper }}
+                  </span>
+                </div>
+                <div class="font-semibold text-on-surface mt-0.5">
+                  {% if log.status_lama %}
+                    {{ log.status_lama }} &rarr; {{ log.status_baru }}
+                  {% else %}
+                    Status Awal: {{ log.status_baru }}
+                  {% endif %}
+                </div>
+                <p class="text-body-xs text-on-surface-variant mb-0 mt-0.5">
+                  {{ log.keterangan }}
+                </p>
+                <span class="font-code-sm text-[10px] text-outline block mt-0.5">
+                  Oleh: {% if log.operator %}{{ log.operator.get_full_name|default:log.operator.username }}{% else %}Sistem Otomatis Gate{% endif %}
+                </span>
+              </div>
+            {% empty %}
+              <!-- Fallback Initial Registration Event -->
+              <div class="relative">
+                <span class="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-secondary ring-4 ring-secondary-fixed"></span>
+                <div class="flex items-baseline justify-between">
+                  <span class="font-code-sm text-code-sm font-bold text-secondary">{{ queue.waktu_masuk|date:"H:i:s" }} WIB</span>
+                  <span class="font-label-caps text-label-caps text-outline uppercase">BUFFER AREA</span>
+                </div>
+                <div class="font-semibold text-on-surface mt-0.5">Truk Tiba di Buffer Inbound</div>
+                <p class="text-body-xs text-on-surface-variant mb-0 mt-0.5">
+                  Pendaftaran armada #{{ queue.no_antrian }} berhasil dicatat pada gardu {{ queue.booth }}.
+                </p>
+                <span class="font-code-sm text-[10px] text-outline block mt-0.5">
+                  Oleh: {% if queue.operator %}{{ queue.operator.get_full_name|default:queue.operator.username }}{% else %}Operator Gate{% endif %}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+
+          <!-- Audit Sign-off Box -->
+          <div class="mt-space-md p-space-sm bg-surface-container border border-outline-variant text-body-xs text-on-surface-variant">
+            <div class="flex items-center gap-1 font-semibold text-on-surface mb-1">
+              <span class="material-symbols-outlined text-[16px] text-secondary">verified_user</span>
+              <span>Verifikasi Keamanan Pelabuhan (ISPS Code)</span>
+            </div>
+            Seluruh data transaksi ini terenkripsi dan tersinkronisasi langsung ke Pusat Data Operasi Pelabuhan (TOS Core v4.19).
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal Hold Operasional (Detail Hold Modal) -->
+<div id="detailHoldModal" class="tos-modal-backdrop hidden" style="position: fixed; inset: 0; background: rgba(4, 21, 52, 0.6); z-index: 1050; display: none; align-items: center; justify-content: center;">
+  <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-lg max-w-md w-full mx-4" style="border-radius: 2px;">
+    <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-space-sm">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-error text-[20px]">warning</span>
+        <span class="font-headline-sm text-headline-sm text-on-surface font-bold">
+          Tahan Armada / Hold Gate
+        </span>
+      </div>
+      <button type="button" onclick="closeDetailHoldModal();" class="text-outline hover:text-on-surface border-0 bg-transparent cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'queue_process_action' queue.pk %}" id="detailHoldForm">
+      {% csrf_token %}
+      <input type="hidden" name="target_status" value="TERTAHAN">
+      <input type="hidden" name="next" value="{% url 'queue_detail' queue.pk %}">
+
+      <p class="font-body-sm text-body-sm text-on-surface-variant mb-2">
+        Masukkan alasan penahanan armada <strong>#{{ queue.no_antrian }}</strong> ({{ queue.truck.no_polisi }}):
+      </p>
+
+      <textarea
+        name="reason"
+        id="detailHoldReason"
+        required
+        rows="3"
+        class="w-full p-2 border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary"
+        style="border-radius: 2px; resize: vertical;"
+        placeholder="Contoh: Overweight WIM Scale 39.5 MT, Dokumen SPPB Kadaluarsa, Segel Rusak..."
+      ></textarea>
+
+      <div class="flex items-center justify-end gap-2 mt-space-md pt-2 border-t border-outline-variant">
+        <button
+          type="button"
+          onclick="closeDetailHoldModal();"
+          class="h-8 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant font-code-sm text-code-sm cursor-pointer"
+        >
+          Batal
+        </button>
+        <button
+          type="submit"
+          class="h-8 px-space-md bg-error text-on-error hover:bg-on-error-container font-code-sm text-code-sm font-bold flex items-center gap-1 cursor-pointer border-0 shadow-sm"
+        >
+          <span class="material-symbols-outlined text-[16px]">pause_circle</span>
+          <span>Tahan Armada (Submit Hold)</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- JavaScript Shortcuts & Modal Handler -->
+<script>
+function openDetailHoldModal() {
+    const modal = document.getElementById('detailHoldModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            const textarea = document.getElementById('detailHoldReason');
+            if (textarea) textarea.focus();
+        }, 100);
+    }
+}
+
+function closeDetailHoldModal() {
+    const modal = document.getElementById('detailHoldModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+    }
+}
+
+function triggerIntercom() {
+    alert("Interkom Booth {{ queue.booth }} Terhubung: Panggilan suara aktif untuk armada {{ queue.truck.no_polisi }} (#{{ queue.no_antrian }}).");
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('detailHoldModal');
+        const isModalOpen = modal && modal.style.display === 'flex';
+
+        // Escape -> Close modal or back to queue list
+        if (e.key === 'Escape') {
+            if (isModalOpen) {
+                e.preventDefault();
+                closeDetailHoldModal();
+            } else {
+                window.location.href = "{% url 'queue_list' %}";
+            }
+        }
+        // Ctrl+P -> Print ticket
+        else if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+            const btnPrint = document.getElementById('btnPrintTicket');
+            if (btnPrint) {
+                window.open(btnPrint.href, '_blank');
+            }
+        }
+        // F4 -> Hold modal
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            {% if queue.status == 'PROSES' %}
+                openDetailHoldModal();
+            {% endif %}
+        }
+        // F8 -> Intercom
+        else if (e.key === 'F8') {
+            e.preventDefault();
+            triggerIntercom();
+        }
+        // Enter -> Submit primary action if not in textarea
+        else if (e.key === 'Enter' && !isModalOpen && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+            const primaryBtn = document.getElementById('btnPrimaryAction');
+            if (primaryBtn) {
+                e.preventDefault();
+                primaryBtn.click();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+<!-- Master Data Tabs Navigation -->
+<div class="flex items-center gap-1 border-b border-outline-variant bg-surface-container-low px-space-md mb-4 overflow-x-auto select-none" style="white-space: nowrap;">
+  <a
+    href="{% url 'truck_master' %}"
+    class="px-3 py-2.5 font-body-sm font-semibold border-b-2 text-decoration-none transition-colors flex items-center gap-1.5 {% if active_tab == 'truck' %}border-secondary text-secondary bg-surface-container-lowest font-bold{% else %}border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container{% endif %}"
+  >
+    <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+    <span>Truk Armada &amp; CMS</span>
+    <span class="font-code-sm text-[11px] px-1.5 py-0.2 rounded {% if active_tab == 'truck' %}bg-secondary-fixed text-on-secondary-fixed{% else %}bg-surface-container text-outline{% endif %}">
+      {{ total_trucks_tab|default:0 }}
+    </span>
+  </a>
+
+  <a
+    href="{% url 'driver_master' %}"
+    class="px-3 py-2.5 font-body-sm font-semibold border-b-2 text-decoration-none transition-colors flex items-center gap-1.5 {% if active_tab == 'driver' %}border-secondary text-secondary bg-surface-container-lowest font-bold{% else %}border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container{% endif %}"
+  >
+    <span class="material-symbols-outlined text-[18px]">badge</span>
+    <span>Sopir Truk</span>
+    <span class="font-code-sm text-[11px] px-1.5 py-0.2 rounded {% if active_tab == 'driver' %}bg-secondary-fixed text-on-secondary-fixed{% else %}bg-surface-container text-outline{% endif %}">
+      {{ total_drivers_tab|default:0 }}
+    </span>
+  </a>
+
+  <a
+    href="{% url 'expedition_master' %}"
+    class="px-3 py-2.5 font-body-sm font-semibold border-b-2 text-decoration-none transition-colors flex items-center gap-1.5 {% if active_tab == 'expedition' %}border-secondary text-secondary bg-surface-container-lowest font-bold{% else %}border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container{% endif %}"
+  >
+    <span class="material-symbols-outlined text-[18px]">domain</span>
+    <span>Perusahaan Ekspedisi</span>
+    <span class="font-code-sm text-[11px] px-1.5 py-0.2 rounded {% if active_tab == 'expedition' %}bg-secondary-fixed text-on-secondary-fixed{% else %}bg-surface-container text-outline{% endif %}">
+      {{ total_expeditions_tab|default:0 }}
+    </span>
+  </a>
+
+  <a
+    href="{% url 'container_master' %}"
+    class="px-3 py-2.5 font-body-sm font-semibold border-b-2 text-decoration-none transition-colors flex items-center gap-1.5 {% if active_tab == 'container' %}border-secondary text-secondary bg-surface-container-lowest font-bold{% else %}border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container{% endif %}"
+  >
+    <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+    <span>Peti Kemas / Kontainer</span>
+    <span class="font-code-sm text-[11px] px-1.5 py-0.2 rounded {% if active_tab == 'container' %}bg-secondary-fixed text-on-secondary-fixed{% else %}bg-surface-container text-outline{% endif %}">
+      {{ total_containers_tab|default:0 }}
+    </span>
+  </a>
+</div>

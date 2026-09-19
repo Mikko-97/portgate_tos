@@ -1,0 +1,731 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Daftar Antrian Truk & Gate In — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- Top Command & Action Bar -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+    <div class="flex flex-col">
+      <div class="flex items-center gap-space-xs">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Daftar Antrian Truk &amp; Gate In
+        </span>
+        <span class="inline-flex items-center px-1.5 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold uppercase" style="border-radius: 2px;">
+          LIVE FEED
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Data antrian truk masuk terminal, status verifikasi EIR, WIM, dan alokasi yard realtime.
+      </p>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+      <a
+        href="{% url 'dashboard' %}"
+        class="h-8 px-space-sm bg-surface-container hover:bg-surface-container-high text-secondary border border-secondary/30 font-code-sm text-code-sm flex items-center gap-1 font-semibold transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        title="Buka Mode Dashboard Ringkasan"
+      >
+        <span class="material-symbols-outlined text-[16px]">tune</span>
+        <span class="d-none d-sm-inline">Mode Dashboard</span>
+      </a>
+
+      <button
+        onclick="showToastNotification('Data CSV ({{ count_total }} antrian) berhasil diunduh');"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        type="button"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">file_download</span>
+        <span>Export CSV</span>
+      </button>
+
+      <button
+        onclick="window.location.reload();"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        type="button"
+        title="Segarkan data (F5)"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">sync</span>
+        <span>Refresh (F5)</span>
+      </button>
+
+      <a
+        href="{% url 'gate_in' %}"
+        class="h-8 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold shadow-sm transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        <span>+ TAMBAH TRUK MASUK</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Industrial Operational KPI Strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 bg-surface-container-low border-b border-outline-variant divide-x divide-outline-variant text-on-surface">
+    <!-- KPI 1 -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">fact_check</span>
+        Total Antrian Hari Ini
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_total }}</span>
+        <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">Truk</span>
+      </div>
+    </div>
+
+    <!-- KPI 2 -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between bg-surface-container-lowest">
+      <span class="font-label-caps text-label-caps text-outline uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px] text-outline">hourglass_empty</span>
+        Menunggu di Buffer
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_menunggu }}</span>
+        <span class="font-code-sm text-code-sm text-outline font-semibold">Truk</span>
+      </div>
+    </div>
+
+    <!-- KPI 3 -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-secondary uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px] text-secondary">sync_saved_locally</span>
+        Sedang di Booth / Lane
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-secondary">{{ count_proses_display }}</span>
+        <span class="font-code-sm text-code-sm text-secondary font-semibold">Lane Aktif</span>
+      </div>
+    </div>
+
+    <!-- KPI 4 -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between bg-error-container/20">
+      <span class="font-label-caps text-label-caps text-on-tertiary-container uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px] text-on-tertiary-container">warning</span>
+        Tertahan / Hold
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-tertiary-container">{{ count_tertahan }}</span>
+        <span class="font-code-sm text-code-sm text-on-tertiary-container font-semibold">Kritikal</span>
+      </div>
+    </div>
+
+    <!-- KPI 5 -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between col-span-2 sm:col-span-1">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[14px]">timer</span>
+        Rata-rata Turnaround (TTT)
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ avg_ttt_mins }}</span>
+        <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">Menit / Truk</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter & Operational Query Toolbar -->
+  <form id="queueFilterForm" method="GET" action="{% url 'queue_list' %}" class="p-space-sm bg-surface border-b border-outline-variant flex flex-wrap items-center justify-between gap-space-sm m-0">
+    <div class="flex flex-wrap items-center gap-space-sm flex-1">
+      <!-- Search Nopol / Driver / Container / Booth / Operator -->
+      <div class="relative min-w-[240px] max-w-xs flex-1">
+        <span class="material-symbols-outlined absolute left-2 top-2 text-[16px] text-outline">search</span>
+        <input
+          name="search"
+          value="{{ search_query }}"
+          class="w-full h-8 pl-8 pr-2 bg-surface-container-lowest border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary transition-colors"
+          style="border-radius: 2px;"
+          placeholder="Cari Plat, Antrian, Kontainer, Driver, Booth, Operator..."
+          type="text"
+        />
+      </div>
+
+      <!-- Filter Status -->
+      <div class="h-8 flex items-center bg-surface-container-lowest border border-outline-variant px-1" style="border-radius: 2px;">
+        <label class="font-label-caps text-label-caps text-outline uppercase px-1">Status:</label>
+        <select
+          name="status"
+          onchange="document.getElementById('queueFilterForm').submit();"
+          class="h-full bg-transparent font-code-sm text-code-sm text-on-surface border-0 focus:outline-none cursor-pointer pr-2"
+        >
+          <option value="all" {% if selected_status == 'all' or not selected_status %}selected{% endif %}>Semua Status ({{ count_total }})</option>
+          <option value="MENUNGGU" {% if selected_status == 'MENUNGGU' %}selected{% endif %}>Menunggu ({{ count_menunggu }})</option>
+          <option value="PROSES" {% if selected_status == 'PROSES' %}selected{% endif %}>Sedang Proses ({{ count_proses }})</option>
+          <option value="TERTAHAN" {% if selected_status == 'TERTAHAN' %}selected{% endif %}>Tertahan / Hold ({{ count_tertahan }})</option>
+          <option value="SELESAI" {% if selected_status == 'SELESAI' %}selected{% endif %}>Selesai Yard ({{ count_selesai }})</option>
+          <option value="KELUAR" {% if selected_status == 'KELUAR' %}selected{% endif %}>Keluar / Gate Out ({{ count_keluar }})</option>
+        </select>
+      </div>
+
+      <!-- Filter Tanggal Operasional -->
+      <div class="flex items-center h-8 bg-surface-container-lowest border border-outline-variant px-1.5" style="border-radius: 2px;">
+        <label for="dateFilterInput" class="material-symbols-outlined text-[16px] text-outline cursor-pointer pr-1" title="Pilih Tanggal">calendar_today</label>
+        <input
+          type="date"
+          name="date"
+          id="dateFilterInput"
+          value="{{ selected_date }}"
+          onchange="document.getElementById('queueFilterForm').submit();"
+          class="h-full bg-transparent font-code-sm text-code-sm text-on-surface border-0 focus:outline-none cursor-pointer"
+          title="Filter berdasarkan tanggal operasional (Asia/Jakarta)"
+        />
+        {% if selected_date %}
+          <button
+            type="button"
+            onclick="document.getElementById('dateFilterInput').value=''; document.getElementById('queueFilterForm').submit();"
+            class="material-symbols-outlined text-[14px] text-outline hover:text-on-surface cursor-pointer bg-transparent border-0 p-0 ms-1"
+            title="Hapus filter tanggal"
+          >
+            cancel
+          </button>
+        {% endif %}
+      </div>
+
+      <!-- Filter Jalur / Gate Lane -->
+      <div class="h-8 flex items-center bg-surface-container-lowest border border-outline-variant px-1" style="border-radius: 2px;">
+        <label class="font-label-caps text-label-caps text-outline uppercase px-1">Gerbang:</label>
+        <select
+          name="lane"
+          onchange="document.getElementById('queueFilterForm').submit();"
+          class="h-full bg-transparent font-code-sm text-code-sm text-on-surface border-0 focus:outline-none cursor-pointer pr-2"
+        >
+          <option value="all" {% if selected_lane == 'all' or not selected_lane %}selected{% endif %}>Semua Jalur (Lane 01 - 06)</option>
+          {% for lane in lanes_list %}
+            <option value="{{ lane.0 }}" {% if selected_lane == lane.0 %}selected{% endif %}>{{ lane.1 }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick Filter Shortcuts -->
+    <div class="flex items-center gap-1.5 shrink-0">
+      {% if hold_only %}
+        <a
+          href="{% url 'queue_list' %}"
+          id="holdFilterToggleBtn"
+          class="h-8 px-2 border font-code-sm text-code-sm font-bold flex items-center gap-1 transition-colors cursor-pointer text-decoration-none bg-error-container text-on-error-container border-error/50"
+          style="border-radius: 2px;"
+          title="Tampilkan seluruh antrian [Alt+H]"
+        >
+          <span class="material-symbols-outlined text-[15px]">filter_alt</span>
+          <span>Tampilkan Semua [Alt+H]</span>
+        </a>
+      {% else %}
+        <a
+          href="{% url 'queue_list' %}?status=TERTAHAN"
+          id="holdFilterToggleBtn"
+          class="h-8 px-2 border font-code-sm text-code-sm font-semibold flex items-center gap-1 transition-colors cursor-pointer text-decoration-none bg-tertiary-container/10 hover:bg-tertiary-container/20 text-on-tertiary-container border-on-tertiary-container/40"
+          style="border-radius: 2px;"
+          title="Filter hanya truk berstatus tertahan [Alt+H]"
+        >
+          <span class="material-symbols-outlined text-[15px]">filter_alt</span>
+          <span>Hanya Truk Tertahan [Alt+H]</span>
+        </a>
+      {% endif %}
+
+      <a
+        href="{% url 'queue_list' %}"
+        class="h-8 px-2 bg-surface-container-low hover:bg-surface-container text-outline hover:text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+        title="Reset Filter"
+      >
+        <span class="material-symbols-outlined text-[16px]">clear_all</span>
+      </a>
+    </div>
+  </form>
+
+  <!-- Operational Dense Data Table -->
+  <div class="w-full overflow-x-auto bg-surface-container-lowest">
+    <table class="w-full text-left border-collapse min-w-[1100px]">
+      <thead>
+        <tr class="bg-surface-container border-b border-outline-variant font-label-caps text-label-caps text-outline tracking-wider uppercase select-none">
+          <th class="py-2.5 px-space-sm w-12 text-center font-bold">#</th>
+          <th class="py-2.5 px-space-sm w-36 font-bold">No. Polisi</th>
+          <th class="py-2.5 px-space-sm w-56 font-bold">Sopir / Ekspedisi</th>
+          <th class="py-2.5 px-space-sm w-44 font-bold">No. Kontainer</th>
+          <th class="py-2.5 px-space-sm w-36 font-bold">Ukuran / Tipe</th>
+          <th class="py-2.5 px-space-sm w-44 font-bold">Status Antrian</th>
+          <th class="py-2.5 px-space-sm w-36 font-bold">Waktu Masuk</th>
+          <th class="py-2.5 px-space-sm text-right font-bold w-48 pr-space-md">Aksi Booth</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-outline-variant font-body-sm text-body-sm text-on-surface">
+        {% for q in queues %}
+          <tr class="{% if forloop.first %}bg-surface-container-high/40 hover:bg-surface-container border-l-4 border-l-secondary transition-colors{% elif q.status == 'TERTAHAN' %}bg-tertiary-container/5 hover:bg-tertiary-container/10 transition-colors{% elif q.status == 'SELESAI' %}bg-surface-container-low/50 hover:bg-surface-container transition-colors{% else %}hover:bg-surface-container transition-colors{% endif %}">
+            <!-- Column 1: Index Number -->
+            <td class="py-2 px-space-sm text-center font-code-sm text-code-sm text-outline">
+              {% if is_paginated %}
+                {{ page_obj.start_index|add:forloop.counter0 }}
+              {% else %}
+                {{ forloop.counter }}
+              {% endif %}
+            </td>
+
+            <!-- Column 2: License Plate -->
+            <td class="py-2 px-space-sm">
+              <a
+                href="{% url 'queue_detail' q.pk %}"
+                class="inline-flex items-center px-1.5 py-0.5 bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold tracking-wide border border-outline/40 text-decoration-none transition-colors"
+                style="border-radius: 2px;"
+                title="Lihat Detail Antrian {{ q.no_antrian }}"
+              >
+                {{ q.truck.no_polisi }}
+              </a>
+              <div class="font-body-xs text-body-xs text-outline leading-none mt-0.5">
+                {{ q.truck.get_konfigurasi_display }}
+              </div>
+            </td>
+
+            <!-- Column 3: Driver & Transporter -->
+            <td class="py-2 px-space-sm">
+              <div class="font-headline-sm text-body-sm font-semibold text-on-surface leading-tight">
+                {{ q.driver.nama }}
+              </div>
+              <div class="font-body-xs text-body-xs text-outline leading-none mt-0.5 text-truncate" style="max-width: 200px;">
+                {{ q.truck.expedisi.nama_perusahaan }}
+              </div>
+            </td>
+
+            <!-- Column 4: Container Number -->
+            <td class="py-2 px-space-sm">
+              {% if q.container %}
+                <div class="inline-flex items-center bg-inverse-surface text-inverse-on-surface px-1.5 py-0.5 font-code-sm text-code-sm font-bold border border-outline" style="border-radius: 2px;">
+                  {{ q.container.no_kontainer }}
+                </div>
+              {% else %}
+                <span class="text-outline fst-italic font-code-sm" style="font-size: 11px;">Chassis Kosong</span>
+              {% endif %}
+            </td>
+
+            <!-- Column 5: Size / Type -->
+            <td class="py-2 px-space-sm">
+              {% if q.container %}
+                <span class="inline-flex items-center gap-1 font-code-sm text-code-sm text-on-surface font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full {% if '40' in q.container.ukuran %}bg-secondary{% else %}bg-outline{% endif %}" style="border-radius: 50%; width: 6px; height: 6px; display: inline-block;"></span>
+                  {{ q.container.ukuran }}' {{ q.container.tipe }}
+                </span>
+              {% else %}
+                <span class="text-outline" style="font-size: 11px;">-</span>
+              {% endif %}
+            </td>
+
+            <!-- Column 6: Status Antrian Badge -->
+            <td class="py-2 px-space-sm">
+              {% if q.status == 'PROSES' %}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-secondary-fixed text-on-secondary-fixed border border-secondary-container font-label-caps text-label-caps uppercase font-bold" style="border-radius: 2px;">
+                  <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" style="border-radius: 50%; width: 6px; height: 6px; display: inline-block;"></span>
+                  PROSES {{ q.gerbang_lane|default:"LANE 01" }}
+                </span>
+              {% elif q.status == 'TERTAHAN' %}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed border border-tertiary-fixed-dim font-label-caps text-label-caps uppercase font-bold" style="border-radius: 2px;" title="{{ q.alasan_tertahan }}">
+                  <span class="material-symbols-outlined text-[12px] text-on-tertiary-container">warning</span>
+                  TERTAHAN{% if q.alasan_tertahan %}: {{ q.alasan_tertahan|truncatechars:12 }}{% endif %}
+                </span>
+              {% elif q.status == 'MENUNGGU' %}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-surface-container text-outline border border-outline-variant font-label-caps text-label-caps uppercase font-bold" style="border-radius: 2px;">
+                  <span class="w-1.5 h-1.5 rounded-full bg-outline" style="border-radius: 50%; width: 6px; height: 6px; display: inline-block;"></span>
+                  MENUNGGU BUFFER
+                </span>
+              {% elif q.status == 'SELESAI' %}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-primary-fixed text-on-primary-fixed border border-outline font-label-caps text-label-caps uppercase font-bold" style="border-radius: 2px;">
+                  <span class="material-symbols-outlined text-[12px] text-secondary">check_circle</span>
+                  SELESAI YARD
+                </span>
+              {% elif q.status == 'KELUAR' %}
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-surface-container-high text-on-surface border border-outline-variant font-label-caps text-label-caps uppercase font-bold" style="border-radius: 2px;">
+                  <span class="material-symbols-outlined text-[12px] text-outline">output</span>
+                  GATE OUT
+                </span>
+              {% endif %}
+            </td>
+
+            <!-- Column 7: Waktu Masuk & Dwell -->
+            <td class="py-2 px-space-sm">
+              <div class="font-code-sm text-code-sm text-on-surface font-semibold">{{ q.waktu_masuk|date:"H:i:s" }}</div>
+              <span class="font-code-sm text-body-xs {% if q.status == 'TERTAHAN' %}text-on-tertiary-container font-semibold{% else %}text-outline{% endif %}">
+                {{ q.dwell_time|default:"0m" }} lalu
+              </span>
+            </td>
+
+            <!-- Column 8: Aksi Booth Buttons -->
+            <td class="py-2 px-space-sm text-right pr-space-md" onclick="event.stopPropagation();">
+              <div class="inline-flex items-center gap-1 justify-end">
+                {% if q.status == 'MENUNGGU' %}
+                  <!-- Aksi Panggil (Mulai Proses) -->
+                  <form method="POST" action="{% url 'queue_process_action' q.pk %}" class="d-inline m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_status" value="PROSES">
+                    <button
+                      type="submit"
+                      class="h-6 px-1.5 bg-secondary text-on-secondary font-code-sm text-code-sm font-semibold hover:bg-primary transition-colors flex items-center gap-0.5 cursor-pointer border-0"
+                      style="border-radius: 2px;"
+                      title="Panggil armada ke Booth / Gerbang"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">campaign</span>
+                      <span>Panggil</span>
+                    </button>
+                  </form>
+
+                {% elif q.status == 'PROSES' %}
+                  <!-- Aksi Hold -->
+                  <button
+                    type="button"
+                    class="h-6 px-1.5 bg-error hover:bg-on-error-container text-on-error font-code-sm text-code-sm font-semibold transition-colors flex items-center gap-0.5 cursor-pointer border-0"
+                    style="border-radius: 2px;"
+                    onclick="openHoldModal('{% url 'queue_process_action' q.pk %}', '{{ q.no_antrian }}', '{{ q.truck.no_polisi }}');"
+                    title="Tahan Antrian (Hold)"
+                  >
+                    <span class="material-symbols-outlined text-[14px]">front_hand</span>
+                    <span>Hold</span>
+                  </button>
+
+                  <!-- Aksi Selesai -->
+                  <form method="POST" action="{% url 'queue_process_action' q.pk %}" class="d-inline m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_status" value="SELESAI">
+                    <button
+                      type="submit"
+                      class="h-6 px-1.5 bg-secondary text-on-secondary font-code-sm text-code-sm font-bold hover:bg-primary transition-colors flex items-center gap-0.5 cursor-pointer border-0"
+                      style="border-radius: 2px;"
+                      title="Tandai Selesai di Yard"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">check</span>
+                      <span>Selesai</span>
+                    </button>
+                  </form>
+
+                {% elif q.status == 'TERTAHAN' %}
+                  <!-- Aksi Lanjut Proses -->
+                  <form method="POST" action="{% url 'queue_process_action' q.pk %}" class="d-inline m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_status" value="PROSES">
+                    <button
+                      type="submit"
+                      class="h-6 px-1.5 bg-secondary text-on-secondary font-code-sm text-code-sm font-bold hover:bg-primary transition-colors flex items-center gap-0.5 cursor-pointer border-0"
+                      style="border-radius: 2px;"
+                      title="Lanjutkan Penanganan Antrian"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">play_arrow</span>
+                      <span>Lanjut</span>
+                    </button>
+                  </form>
+
+                {% elif q.status == 'SELESAI' %}
+                  <!-- Aksi Gate Out -->
+                  <form method="POST" action="{% url 'queue_process_action' q.pk %}" class="d-inline m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_status" value="KELUAR">
+                    <button
+                      type="submit"
+                      class="h-6 px-1.5 bg-surface-container-high hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 cursor-pointer"
+                      style="border-radius: 2px;"
+                      title="Keluarkan armada dari terminal (Gate Out)"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">door_open</span>
+                      <span>Gate Out</span>
+                    </button>
+                  </form>
+                {% endif %}
+
+                <!-- Detail Antrian -->
+                <a
+                  href="{% url 'queue_detail' q.pk %}"
+                  class="h-6 px-1.5 bg-surface-container-low hover:bg-secondary hover:text-on-secondary text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 text-decoration-none cursor-pointer transition-colors"
+                  style="border-radius: 2px;"
+                  title="Lihat Detail Operasional Antrian"
+                >
+                  <span class="material-symbols-outlined text-[13px]">visibility</span>
+                  <span>Detail</span>
+                </a>
+
+                <!-- Cetak Tiket EIR -->
+                <a
+                  href="{% url 'gate_ticket' q.pk %}"
+                  target="_blank"
+                  class="h-6 px-1.5 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-0.5 text-decoration-none cursor-pointer"
+                  style="border-radius: 2px;"
+                  title="Cetak Tiket EIR / Barcode Antrian"
+                >
+                  <span class="material-symbols-outlined text-[14px]">print</span>
+                  <span>Tiket</span>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-on-surface-variant">
+              <div class="flex flex-col items-center justify-center gap-2 py-4">
+                <span class="material-symbols-outlined text-secondary" style="font-size: 40px;">inbox</span>
+                <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                  Tidak Ada Data Antrian Ditemukan
+                </span>
+                <p class="font-body-xs text-body-xs text-on-surface-variant max-w-md mb-2">
+                  Tidak ada armada truk yang cocok dengan kriteria pencarian atau filter yang diterapkan.
+                </p>
+                <div class="flex items-center gap-2">
+                  <a
+                    href="{% url 'queue_list' %}"
+                    class="h-7 px-3 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 text-decoration-none"
+                    style="border-radius: 2px;"
+                  >
+                    <span class="material-symbols-outlined text-[14px]">clear_all</span>
+                    <span>Reset Filter</span>
+                  </a>
+                  <a
+                    href="{% url 'gate_in' %}"
+                    class="h-7 px-3 bg-primary-container hover:bg-primary text-on-primary font-code-sm text-code-sm flex items-center gap-1 text-decoration-none font-bold"
+                    style="border-radius: 2px;"
+                  >
+                    <span class="material-symbols-outlined text-[14px]">add</span>
+                    <span>+ Daftarkan Truk</span>
+                  </a>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Industrial Strict Bottom Pagination Bar -->
+  <div class="bg-surface-container border-t border-outline-variant px-space-md py-2 flex flex-col md:flex-row items-center justify-between gap-space-sm select-none">
+    <div class="flex items-center gap-space-md">
+      <span class="font-body-xs text-body-xs text-on-surface-variant font-medium">
+        {% if is_paginated %}
+          Menampilkan <span class="font-bold text-on-surface">{{ page_obj.start_index }} - {{ page_obj.end_index }}</span> dari{' '}
+          <span class="font-bold text-on-surface">{{ paginator.count }}</span> data antrian (Halaman {{ page_obj.number }} dari {{ paginator.num_pages }})
+        {% else %}
+          Menampilkan <span class="font-bold text-on-surface">1 - {{ queues|length }}</span> dari{' '}
+          <span class="font-bold text-on-surface">{{ queues|length }}</span> data antrian
+        {% endif %}
+      </span>
+      <div class="flex items-center gap-1">
+        <label class="font-label-caps text-label-caps text-outline uppercase">Baris:</label>
+        <select
+          onchange="updatePerPage(this.value);"
+          class="h-6 bg-surface-container-lowest border border-outline-variant font-code-sm text-code-sm text-on-surface px-1 focus:outline-none cursor-pointer"
+          style="border-radius: 2px;"
+        >
+          <option value="10" {% if current_per_page == 10 %}selected{% endif %}>10</option>
+          <option value="25" {% if current_per_page == 25 %}selected{% endif %}>25</option>
+          <option value="50" {% if current_per_page == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if current_per_page == 100 %}selected{% endif %}>100</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Pager Number Buttons -->
+    {% if is_paginated %}
+      <div class="flex items-center gap-1">
+        <!-- Tombol Pertama -->
+        {% if page_obj.has_previous %}
+          <a
+            href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_lane %}&lane={{ selected_lane }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if hold_only %}&hold=1{% endif %}&per_page={{ current_per_page }}"
+            class="h-7 px-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center text-decoration-none cursor-pointer"
+            style="border-radius: 2px;"
+            id="firstPageBtn"
+          >
+            Pertama
+          </a>
+          <a
+            href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_lane %}&lane={{ selected_lane }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if hold_only %}&hold=1{% endif %}&per_page={{ current_per_page }}"
+            class="h-7 px-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center text-decoration-none cursor-pointer"
+            style="border-radius: 2px;"
+            id="prevPageBtn"
+            title="Halaman Sebelumnya [←]"
+          >
+            <span class="material-symbols-outlined text-[14px]">chevron_left</span>
+          </a>
+        {% else %}
+          <span class="h-7 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm cursor-not-allowed opacity-60 flex items-center" style="border-radius: 2px;">
+            Pertama
+          </span>
+          <span class="h-7 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm cursor-not-allowed opacity-60 flex items-center" style="border-radius: 2px;">
+            <span class="material-symbols-outlined text-[14px]">chevron_left</span>
+          </span>
+        {% endif %}
+
+        <!-- Nomor Halaman Aktif -->
+        <span class="h-7 w-7 bg-primary text-on-primary border border-primary font-code-sm text-code-sm font-bold flex items-center justify-center" style="border-radius: 2px;">
+          {{ page_obj.number }}
+        </span>
+
+        <!-- Tombol Berikutnya / Terakhir -->
+        {% if page_obj.has_next %}
+          <a
+            href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_lane %}&lane={{ selected_lane }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if hold_only %}&hold=1{% endif %}&per_page={{ current_per_page }}"
+            class="h-7 px-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center text-decoration-none cursor-pointer"
+            style="border-radius: 2px;"
+            id="nextPageBtn"
+            title="Halaman Berikutnya [→]"
+          >
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+          </a>
+          <a
+            href="?page={{ paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_lane %}&lane={{ selected_lane }}{% endif %}{% if selected_date %}&date={{ selected_date }}{% endif %}{% if hold_only %}&hold=1{% endif %}&per_page={{ current_per_page }}"
+            class="h-7 px-2 bg-surface-container-lowest hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center text-decoration-none cursor-pointer"
+            style="border-radius: 2px;"
+            id="lastPageBtn"
+          >
+            Terakhir
+          </a>
+        {% else %}
+          <span class="h-7 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm cursor-not-allowed opacity-60 flex items-center" style="border-radius: 2px;">
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+          </span>
+          <span class="h-7 px-2 bg-surface-container-low text-outline border border-outline-variant font-code-sm text-code-sm cursor-not-allowed opacity-60 flex items-center" style="border-radius: 2px;">
+            Terakhir
+          </span>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <!-- Keyboard Navigation Shortcut Hint -->
+    <div class="d-none d-xl-flex items-center gap-1 font-code-sm text-code-sm text-outline">
+      <span class="material-symbols-outlined text-[14px]">keyboard</span>
+      <span>Gunakan tombol panah [← / →] untuk navigasi halaman, [Alt+H] toggle filter hold</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Hold / Tahan Antrian (Stitch Industrial Aesthetics) -->
+<div class="tos-modal-backdrop" id="holdModalBackdrop">
+  <div class="tos-modal-box" style="max-width: 460px; border-color: rgba(219, 121, 10, 0.4);">
+    <div class="flex items-center justify-between pb-2 border-b border-outline-variant">
+      <div class="flex items-center gap-2 font-headline-sm text-headline-sm fw-bold text-on-tertiary-container">
+        <span class="material-symbols-outlined text-on-tertiary-container" style="font-size: 20px;">warning</span>
+        <span>Tahan Antrian Truk (Hold)</span>
+      </div>
+      <button type="button" class="btn-close" onclick="closeHoldModal();" aria-label="Close" style="font-size: 12px;"></button>
+    </div>
+
+    <form id="holdForm" method="POST" action="" class="m-0">
+      {% csrf_token %}
+      <input type="hidden" name="target_status" value="TERTAHAN">
+      
+      <div class="my-3 font-body-sm text-body-sm">
+        <!-- Info Strip Armada -->
+        <div class="bg-surface-container-low border border-outline-variant p-2.5 mb-3" style="border-radius: 2px;">
+          <div class="flex justify-between items-center py-0.5">
+            <span class="text-outline font-label-caps text-label-caps uppercase">Nomor Antrian:</span>
+            <span class="fw-bold font-code-md text-primary" id="modalQueueNumber">-</span>
+          </div>
+          <div class="flex justify-between items-center py-0.5 border-t border-outline-variant/60 mt-1 pt-1">
+            <span class="text-outline font-label-caps text-label-caps uppercase">Nomor Polisi Truk:</span>
+            <span class="fw-bold font-code-md text-on-surface" id="modalPlate">-</span>
+          </div>
+        </div>
+
+        <!-- Alasan Hold -->
+        <div class="mb-2">
+          <label for="id_hold_reason" class="font-label-caps text-label-caps text-on-surface uppercase d-block mb-1">
+            Alasan Tertahan (Wajib Diisi) <span class="text-error">*</span>
+          </label>
+          <textarea
+            class="w-full bg-surface-container-lowest border border-outline-variant p-2 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary transition-colors"
+            style="border-radius: 2px;"
+            id="id_hold_reason"
+            name="reason"
+            rows="3"
+            placeholder="Contoh: SPPB expired, deviasi berat timbangan WIM, segel kontainer rusak..."
+            required
+            maxlength="255"
+          ></textarea>
+          <div class="font-body-xs text-body-xs text-outline mt-1">
+            Alasan ini tercatat secara permanen di riwayat QueueStatusLog untuk audit terminal.
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+        <button
+          type="button"
+          class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm cursor-pointer"
+          style="border-radius: 2px;"
+          onclick="closeHoldModal();"
+        >
+          Batal [Esc]
+        </button>
+        <button
+          type="submit"
+          class="h-8 px-space-md bg-error hover:bg-on-error-container text-on-error font-code-sm text-code-sm font-bold border border-error cursor-pointer transition-colors"
+          style="border-radius: 2px;"
+        >
+          Tahan Truk (Hold)
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 1. Hold Modal Controller
+function openHoldModal(actionUrl, queueNumber, plate) {
+  const modal = document.getElementById('holdModalBackdrop');
+  const form = document.getElementById('holdForm');
+  const queueNumEl = document.getElementById('modalQueueNumber');
+  const plateEl = document.getElementById('modalPlate');
+  const reasonInput = document.getElementById('id_hold_reason');
+
+  if (form && actionUrl) form.action = actionUrl;
+  if (queueNumEl) queueNumEl.textContent = queueNumber || '-';
+  if (plateEl) plateEl.textContent = plate || '-';
+  if (reasonInput) {
+    reasonInput.value = '';
+    setTimeout(() => reasonInput.focus(), 150);
+  }
+
+  if (modal) modal.classList.add('show');
+}
+
+function closeHoldModal() {
+  const modal = document.getElementById('holdModalBackdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+// 2. Per-Page Selector
+function updatePerPage(val) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('per_page', val);
+  url.searchParams.set('page', '1');
+  window.location.href = url.toString();
+}
+
+// 3. Keyboard Navigation Shortcuts [Alt+H, Esc, Arrow Left/Right]
+window.addEventListener('keydown', function(e) {
+  // Modal close with Esc
+  if (e.key === 'Escape') {
+    closeHoldModal();
+  }
+
+  // Toggle Hold Filter with Alt+H
+  if (e.altKey && (e.key === 'h' || e.key === 'H')) {
+    e.preventDefault();
+    const btn = document.getElementById('holdFilterToggleBtn');
+    if (btn) btn.click();
+  }
+
+  // Arrow Left: Previous Page (only if not inside text input)
+  if (e.key === 'ArrowLeft' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+    const prevBtn = document.getElementById('prevPageBtn');
+    if (prevBtn) prevBtn.click();
+  }
+
+  // Arrow Right: Next Page (only if not inside text input)
+  if (e.key === 'ArrowRight' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+    const nextBtn = document.getElementById('nextPageBtn');
+    if (nextBtn) nextBtn.click();
+  }
+});
+</script>
+{% endblock %}

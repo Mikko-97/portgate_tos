@@ -1,0 +1,774 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Account Management — Admin Control Center Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none font-body-sm">
+  <!-- 1. SUB-HEADER: ADMIN CONTROL CENTER (Stitch Design System) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-2 text-[11px] font-code-sm text-on-surface-variant uppercase tracking-wider mb-1">
+        <span>PORT GATE TOS</span>
+        <span class="text-outline">/</span>
+        <span class="text-primary font-bold">ADMIN</span>
+        <span class="text-outline">/</span>
+        <span class="text-on-surface font-semibold">ACCOUNT MANAGEMENT</span>
+      </div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Account Management
+        </span>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          SYSTEM ONLINE
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Manage operator, supervisor, manager and administrator accounts.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Tombol Buat Akun Baru -->
+      <button
+        type="button"
+        onclick="openCreateAccountModal();"
+        class="h-9 px-space-md bg-secondary hover:bg-secondary-container text-white border border-secondary font-code-md text-code-md flex items-center gap-1.5 font-bold cursor-pointer rounded transition-colors shadow-sm"
+        id="btnCreateAccount"
+      >
+        <span class="material-symbols-outlined text-[18px]">person_add</span>
+        <span>+ CREATE ACCOUNT</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. KPI / RINGKASAN AKUN (4 Cards) -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 px-space-md mb-4">
+    <!-- Card 1: Total Accounts -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>TOTAL ACCOUNTS</span>
+        <span class="material-symbols-outlined text-[18px] text-primary">manage_accounts</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-surface font-code-lg">{{ total_accounts }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Pengguna terdaftar</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Active Accounts -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-secondary text-label-caps font-label-caps uppercase">
+        <span>ACTIVE ACCOUNTS</span>
+        <span class="material-symbols-outlined text-[18px] text-emerald-400">verified_user</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-secondary font-code-lg" style="color: #34d399;">{{ active_accounts }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Dapat login ke sistem</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Inactive Accounts -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>INACTIVE ACCOUNTS</span>
+        <span class="material-symbols-outlined text-[18px] text-on-tertiary-container">person_off</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-tertiary-container font-code-lg">{{ inactive_accounts }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Izin akses ditangguhkan</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Operators -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>OPERATORS</span>
+        <span class="material-symbols-outlined text-[18px] text-blue-400">support_agent</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-blue-400 font-code-lg">{{ operator_count }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Petugas gardu operasional</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-space-md flex flex-col gap-space-md">
+    <!-- 3. SEARCH & FILTER TOOLBAR -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3">
+      <form method="GET" action="{% url 'admin_dashboard' %}" class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 m-0" id="filterForm">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <!-- Quick Search -->
+          <div class="relative flex-1 min-w-[240px] max-w-md">
+            <span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-outline">search</span>
+            <input
+              name="search"
+              value="{{ search_query }}"
+              class="w-full h-8 pl-8 pr-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+              placeholder="Search operator / NIP / username..."
+              type="text"
+              id="userSearchInput"
+            />
+          </div>
+
+          <!-- Filter Role -->
+          <select
+            name="role"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded cursor-pointer"
+            onchange="this.form.submit();"
+          >
+            <option value="ALL" {% if role_filter == 'ALL' %}selected{% endif %}>Role: ALL</option>
+            <option value="ADMIN" {% if role_filter == 'ADMIN' %}selected{% endif %}>Role: ADMIN</option>
+            <option value="SUPERVISOR" {% if role_filter == 'SUPERVISOR' %}selected{% endif %}>Role: SUPERVISOR</option>
+            <option value="MANAGER" {% if role_filter == 'MANAGER' %}selected{% endif %}>Role: MANAGER</option>
+            <option value="OPERATOR" {% if role_filter == 'OPERATOR' %}selected{% endif %}>Role: OPERATOR</option>
+          </select>
+
+          <!-- Filter Status -->
+          <select
+            name="status"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded cursor-pointer"
+            onchange="this.form.submit();"
+          >
+            <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>Status: ALL</option>
+            <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Status: ACTIVE</option>
+            <option value="INACTIVE" {% if status_filter == 'INACTIVE' %}selected{% endif %}>Status: INACTIVE</option>
+          </select>
+
+          {% if search_query or role_filter != 'ALL' or status_filter != 'ALL' %}
+          <a href="{% url 'admin_dashboard' %}" class="h-8 px-2.5 bg-surface-container border border-outline-variant hover:bg-surface-container-high text-on-surface-variant font-code-sm text-code-sm flex items-center gap-1 rounded text-decoration-none">
+            <span class="material-symbols-outlined text-[14px]">restart_alt</span>
+            <span>Reset</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <div class="text-on-surface-variant text-label-caps font-label-caps">
+          Menampilkan <span class="font-bold text-on-surface">{{ filtered_count }}</span> akun
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. ACCOUNT TABLE -->
+    <div class="bg-surface-container-lowest border border-outline-variant overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" style="font-size: 12px;">
+          <thead>
+            <tr class="bg-surface-container border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant uppercase">
+              <th class="py-2.5 px-3">USERNAME / ID</th>
+              <th class="py-2.5 px-3">NIP</th>
+              <th class="py-2.5 px-3">NAME</th>
+              <th class="py-2.5 px-3 text-center">ROLE</th>
+              <th class="py-2.5 px-3">BOOTH</th>
+              <th class="py-2.5 px-3">SHIFT</th>
+              <th class="py-2.5 px-3 text-center">STATUS</th>
+              <th class="py-2.5 px-3">LAST LOGIN</th>
+              <th class="py-2.5 px-3 text-right">ACTION</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant font-body-sm text-body-sm">
+            {% for u in users %}
+            <tr class="hover:bg-surface-container-low transition-colors {% if not u.is_active %}opacity-60 bg-surface-container-lowest{% endif %}">
+              <!-- USERNAME / ID -->
+              <td class="py-2.5 px-3 font-code-sm text-code-sm font-bold text-on-surface">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-[16px] text-outline">account_circle</span>
+                  <span>{{ u.username }}</span>
+                  {% if u.is_superuser %}
+                  <span class="text-[9px] px-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded font-code-sm">ROOT</span>
+                  {% endif %}
+                </div>
+              </td>
+
+              <!-- NIP -->
+              <td class="py-2.5 px-3 font-code-sm text-code-sm text-primary font-semibold">
+                {{ u.display_nip }}
+              </td>
+
+              <!-- NAME -->
+              <td class="py-2.5 px-3 font-semibold text-on-surface">
+                {{ u.display_name }}
+              </td>
+
+              <!-- ROLE (Badges) -->
+              <td class="py-2.5 px-3 text-center">
+                {% if u.display_role == 'Admin' %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-900/40 text-purple-300 border border-purple-500/40 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                  ADMIN
+                </span>
+                {% elif u.display_role == 'Manager' %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-900/40 text-indigo-300 border border-indigo-500/40 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                  MANAGER
+                </span>
+                {% elif u.display_role == 'Supervisor' %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-900/40 text-cyan-300 border border-cyan-500/40 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                  SUPERVISOR
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-900/40 text-blue-300 border border-blue-500/40 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                  OPERATOR
+                </span>
+                {% endif %}
+              </td>
+
+              <!-- BOOTH -->
+              <td class="py-2.5 px-3 font-code-sm text-code-sm text-on-surface-variant">
+                {{ u.display_booth }}
+              </td>
+
+              <!-- SHIFT -->
+              <td class="py-2.5 px-3 font-code-sm text-code-sm text-on-surface-variant">
+                {{ u.display_shift }}
+              </td>
+
+              <!-- STATUS -->
+              <td class="py-2.5 px-3 text-center">
+                {% if u.is_active %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  ACTIVE
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-900/30 text-red-400 border border-red-500/30 font-code-sm text-[10px] font-bold rounded uppercase">
+                  <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                  INACTIVE
+                </span>
+                {% endif %}
+              </td>
+
+              <!-- LAST LOGIN -->
+              <td class="py-2.5 px-3 font-code-sm text-code-sm text-on-surface-variant">
+                {% if u.last_login %}
+                  {{ u.last_login|date:"d/m/Y H:i" }} WIB
+                {% else %}
+                  <span class="text-outline text-[11px] italic">Belum pernah</span>
+                {% endif %}
+              </td>
+
+              <!-- ACTION BUTTONS -->
+              <td class="py-2.5 px-3 text-right">
+                <div class="inline-flex items-center gap-1">
+                  <!-- View Modal Button -->
+                  <button
+                    type="button"
+                    onclick="openDetailModal({{ u.pk }});"
+                    class="h-7 w-7 bg-surface-container hover:bg-surface-container-high border border-outline-variant text-on-surface-variant flex items-center justify-center rounded cursor-pointer transition-colors"
+                    title="Lihat Rincian Akun"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">visibility</span>
+                  </button>
+
+                  <!-- Edit Modal Button -->
+                  <button
+                    type="button"
+                    onclick="openEditModal({{ u.pk }});"
+                    class="h-7 w-7 bg-surface-container hover:bg-secondary-container border border-outline-variant text-secondary flex items-center justify-center rounded cursor-pointer transition-colors"
+                    title="Ubah Data Akun &amp; Role"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
+
+                  <!-- Toggle Active Button -->
+                  {% if u == request.user %}
+                  <button
+                    type="button"
+                    disabled
+                    class="h-7 w-7 bg-surface-container opacity-30 border border-outline-variant text-outline flex items-center justify-center rounded cursor-not-allowed"
+                    title="Tidak dapat menonaktifkan akun sendiri"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">toggle_on</span>
+                  </button>
+                  {% else %}
+                  <button
+                    type="button"
+                    onclick="openToggleModal({{ u.pk }}, '{{ u.username|escapejs }}', {{ u.is_active|yesno:'true,false' }});"
+                    class="h-7 w-7 bg-surface-container hover:bg-surface-container-high border border-outline-variant {% if u.is_active %}text-emerald-400{% else %}text-red-400{% endif %} flex items-center justify-center rounded cursor-pointer transition-colors"
+                    title="{% if u.is_active %}Deaktivasi Akun{% else %}Aktivasi Akun{% endif %}"
+                  >
+                    <span class="material-symbols-outlined text-[16px]">
+                      {% if u.is_active %}toggle_on{% else %}toggle_off{% endif %}
+                    </span>
+                  </button>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="9" class="py-8 text-center text-on-surface-variant">
+                <span class="material-symbols-outlined text-[32px] text-outline block mb-1">person_search</span>
+                Tidak ada data akun yang sesuai dengan filter pencarian.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 5. PAGINATION -->
+      {% if page_obj.has_other_pages %}
+      <div class="bg-surface-container p-3 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-2 font-code-sm text-code-sm">
+        <div class="text-on-surface-variant">
+          Halaman <span class="font-bold text-on-surface">{{ page_obj.number }}</span> dari <span class="font-bold text-on-surface">{{ page_obj.paginator.num_pages }}</span>
+        </div>
+
+        <div class="flex items-center gap-1">
+          {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if role_filter != 'ALL' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'ALL' %}&status={{ status_filter }}{% endif %}" class="px-2.5 py-1 bg-surface-container-low border border-outline-variant text-on-surface hover:bg-surface-container-high rounded text-decoration-none">
+            &laquo; Prev
+          </a>
+          {% endif %}
+
+          {% for p in page_obj.paginator.page_range %}
+            {% if p == page_obj.number %}
+            <span class="px-2.5 py-1 bg-secondary text-white font-bold rounded">{{ p }}</span>
+            {% elif p >= page_obj.number|add:"-2" and p <= page_obj.number|add:"2" %}
+            <a href="?page={{ p }}{% if search_query %}&search={{ search_query }}{% endif %}{% if role_filter != 'ALL' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'ALL' %}&status={{ status_filter }}{% endif %}" class="px-2.5 py-1 bg-surface-container-low border border-outline-variant text-on-surface hover:bg-surface-container-high rounded text-decoration-none">
+              {{ p }}
+            </a>
+            {% endif %}
+          {% endfor %}
+
+          {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if role_filter != 'ALL' %}&role={{ role_filter }}{% endif %}{% if status_filter != 'ALL' %}&status={{ status_filter }}{% endif %}" class="px-2.5 py-1 bg-surface-container-low border border-outline-variant text-on-surface hover:bg-surface-container-high rounded text-decoration-none">
+            Next &raquo;
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL 1: CREATE OPERATOR ACCOUNT                                  -->
+<!-- ================================================================= -->
+<div class="tos-modal-backdrop" id="createAccountModalBackdrop">
+  <div class="tos-modal-box" style="max-width: 540px;">
+    <div class="flex items-center justify-between pb-2 border-b border-outline-variant">
+      <div class="flex items-center gap-2 font-headline-sm text-headline-sm font-bold text-on-surface">
+        <span class="material-symbols-outlined text-secondary" style="font-size: 22px;">person_add</span>
+        <span>CREATE OPERATOR ACCOUNT</span>
+      </div>
+      <button type="button" class="btn-close" onclick="closeCreateAccountModal();" aria-label="Close" style="font-size: 12px;"></button>
+    </div>
+
+    <form method="POST" action="{% url 'admin_user_create' %}" class="my-3 flex flex-col gap-3 font-body-sm">
+      {% csrf_token %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Username / ID -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Username / Operator ID *
+          </label>
+          {{ create_form.username }}
+        </div>
+
+        <!-- NIP -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            NIP / ID Petugas TOS *
+          </label>
+          {{ create_form.nip }}
+        </div>
+      </div>
+
+      <!-- Nama Lengkap -->
+      <div>
+        <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+          Nama Lengkap Operator *
+        </label>
+        {{ create_form.nama }}
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Password -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Kata Sandi / PIN *
+          </label>
+          {{ create_form.password }}
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Konfirmasi Kata Sandi *
+          </label>
+          {{ create_form.confirm_password }}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Role -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Peran / Hak Akses (Role) *
+          </label>
+          {{ create_form.role }}
+        </div>
+
+        <!-- Status Izin Aktif -->
+        <div class="flex items-center gap-2 pt-4">
+          {{ create_form.is_active }}
+          <label for="{{ create_form.is_active.id_for_label }}" class="font-body-sm text-body-sm text-on-surface cursor-pointer select-none">
+            Akun Aktif (Dapat Login)
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Penugasan Booth -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Penugasan Booth Utama
+          </label>
+          {{ create_form.booth }}
+        </div>
+
+        <!-- Shift Kerja -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Shift Kerja Utama
+          </label>
+          {{ create_form.shift }}
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm text-code-sm" onclick="closeCreateAccountModal();">
+          Batal [Esc]
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary font-code-sm text-code-sm font-bold flex items-center gap-1.5" style="background-color: var(--color-secondary); border-color: var(--color-secondary);">
+          <span class="material-symbols-outlined text-[16px]">save</span>
+          <span>Simpan &amp; Buat Akun</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL 2: EDIT OPERATOR ACCOUNT                                    -->
+<!-- ================================================================= -->
+<div class="tos-modal-backdrop" id="editAccountModalBackdrop">
+  <div class="tos-modal-box" style="max-width: 540px;">
+    <div class="flex items-center justify-between pb-2 border-b border-outline-variant">
+      <div class="flex items-center gap-2 font-headline-sm text-headline-sm font-bold text-on-surface">
+        <span class="material-symbols-outlined text-secondary" style="font-size: 22px;">edit_square</span>
+        <span>EDIT OPERATOR ACCOUNT: <span id="editModalUsername" class="text-secondary font-code-sm"></span></span>
+      </div>
+      <button type="button" class="btn-close" onclick="closeEditModal();" aria-label="Close" style="font-size: 12px;"></button>
+    </div>
+
+    <form method="POST" id="editAccountForm" action="" class="my-3 flex flex-col gap-3 font-body-sm">
+      {% csrf_token %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Nama Lengkap -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Nama Lengkap Operator *
+          </label>
+          <input type="text" name="nama" id="editNamaInput" required class="w-full h-9 px-3 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded">
+        </div>
+
+        <!-- NIP -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            NIP / ID Petugas TOS *
+          </label>
+          <input type="text" name="nip" id="editNipInput" required class="w-full h-9 px-3 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded uppercase">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Role -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Peran / Hak Akses (Role) *
+          </label>
+          <select name="role" id="editRoleSelect" class="w-full h-9 px-3 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded cursor-pointer">
+            {% for r_val, r_lbl in role_choices %}
+            <option value="{{ r_val }}">{{ r_lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Status Izin Aktif -->
+        <div class="flex items-center gap-2 pt-4">
+          <input type="checkbox" name="is_active" id="editIsActiveCheckbox" class="w-4 h-4 text-secondary bg-surface-container-low border-outline-variant rounded cursor-pointer">
+          <label for="editIsActiveCheckbox" class="font-body-sm text-body-sm text-on-surface cursor-pointer select-none">
+            Akun Aktif (Dapat Login)
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Penugasan Booth -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Penugasan Booth Utama
+          </label>
+          <select name="booth" id="editBoothSelect" class="w-full h-9 px-3 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded cursor-pointer">
+            <option value="">-- Tanpa Penugasan Tetap --</option>
+            {% for b_val, b_lbl in booth_choices %}
+            <option value="{{ b_val }}">{{ b_lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Shift Kerja -->
+        <div>
+          <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+            Shift Kerja Utama
+          </label>
+          <select name="shift" id="editShiftSelect" class="w-full h-9 px-3 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded cursor-pointer">
+            <option value="">-- Tanpa Shift Tetap --</option>
+            {% for s_val, s_lbl in shift_choices %}
+            <option value="{{ s_val }}">{{ s_lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Change Password (Optional) -->
+      <div class="p-2.5 bg-surface-container-low border border-outline-variant rounded mt-1">
+        <span class="font-label-caps text-label-caps text-primary uppercase block mb-2 font-bold">
+          Ganti Kata Sandi / PIN (Opsional)
+        </span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+              Kata Sandi Baru
+            </label>
+            <input type="password" name="new_password" placeholder="Kosongkan jika tetap..." class="w-full h-8 px-2.5 bg-surface-container border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded">
+          </div>
+          <div>
+            <label class="block font-label-caps text-label-caps text-on-surface-variant uppercase mb-1">
+              Ulangi Sandi Baru
+            </label>
+            <input type="password" name="confirm_new_password" placeholder="Konfirmasi sandi baru..." class="w-full h-8 px-2.5 bg-surface-container border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-outline-variant mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm text-code-sm" onclick="closeEditModal();">
+          Batal [Esc]
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary font-code-sm text-code-sm font-bold flex items-center gap-1.5" style="background-color: var(--color-secondary); border-color: var(--color-secondary);">
+          <span class="material-symbols-outlined text-[16px]">save</span>
+          <span>Simpan Perubahan</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL 3: VIEW DETAIL ACCOUNT                                      -->
+<!-- ================================================================= -->
+<div class="tos-modal-backdrop" id="detailAccountModalBackdrop">
+  <div class="tos-modal-box" style="max-width: 480px;">
+    <div class="flex items-center justify-between pb-2 border-b border-outline-variant">
+      <div class="flex items-center gap-2 font-headline-sm text-headline-sm font-bold text-on-surface">
+        <span class="material-symbols-outlined text-primary" style="font-size: 22px;">badge</span>
+        <span>DETAIL OPERATOR ACCOUNT</span>
+      </div>
+      <button type="button" class="btn-close" onclick="closeDetailModal();" aria-label="Close" style="font-size: 12px;"></button>
+    </div>
+
+    <div class="my-3 flex flex-col gap-3 font-body-sm text-body-sm">
+      <div class="flex items-center gap-3 p-3 bg-surface-container-low border border-outline-variant rounded">
+        <div class="w-12 h-12 rounded bg-primary-container flex items-center justify-center text-primary-fixed font-headline-lg font-bold">
+          <span class="material-symbols-outlined text-[28px]">person</span>
+        </div>
+        <div class="flex flex-col overflow-hidden">
+          <span id="detailUsername" class="font-headline-sm text-headline-sm font-bold text-on-surface font-code-md"></span>
+          <span id="detailNama" class="text-on-surface-variant font-semibold"></span>
+          <span id="detailNip" class="text-[11px] font-code-sm text-primary"></span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-[12px] font-code-sm">
+        <div class="p-2 bg-surface-container-low border border-outline-variant rounded">
+          <span class="text-outline block text-[10px] uppercase">Hak Akses (Role)</span>
+          <span id="detailRole" class="font-bold text-on-surface"></span>
+        </div>
+        <div class="p-2 bg-surface-container-low border border-outline-variant rounded">
+          <span class="text-outline block text-[10px] uppercase">Status Izin</span>
+          <span id="detailStatus" class="font-bold"></span>
+        </div>
+        <div class="p-2 bg-surface-container-low border border-outline-variant rounded">
+          <span class="text-outline block text-[10px] uppercase">Booth Utama</span>
+          <span id="detailBooth" class="text-on-surface"></span>
+        </div>
+        <div class="p-2 bg-surface-container-low border border-outline-variant rounded">
+          <span class="text-outline block text-[10px] uppercase">Shift Kerja</span>
+          <span id="detailShift" class="text-on-surface"></span>
+        </div>
+        <div class="p-2 bg-surface-container-low border border-outline-variant rounded col-span-2">
+          <span class="text-outline block text-[10px] uppercase">Aktivitas Terakhir (Last Login)</span>
+          <span id="detailLastLogin" class="text-on-surface"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end pt-2 border-t border-outline-variant">
+      <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm text-code-sm" onclick="closeDetailModal();">
+        Tutup [Esc]
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL 4: TOGGLE ACTIVE CONFIRMATION                               -->
+<!-- ================================================================= -->
+<div class="tos-modal-backdrop" id="toggleAccountModalBackdrop">
+  <div class="tos-modal-box" style="max-width: 420px;">
+    <div class="flex items-center justify-between pb-2 border-b border-outline-variant">
+      <div class="flex items-center gap-2 font-headline-sm text-headline-sm font-bold" id="toggleModalTitle">
+        <span class="material-symbols-outlined text-[20px]" id="toggleModalIcon">warning</span>
+        <span id="toggleModalHeading">Konfirmasi Status Akun</span>
+      </div>
+      <button type="button" class="btn-close" onclick="closeToggleModal();" aria-label="Close" style="font-size: 12px;"></button>
+    </div>
+
+    <form method="POST" id="toggleAccountForm" action="" class="my-3 font-body-sm text-body-sm">
+      {% csrf_token %}
+      <p id="toggleModalText" class="text-on-surface mb-3"></p>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-outline-variant">
+        <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm text-code-sm" onclick="closeToggleModal();">
+          Batal [Esc]
+        </button>
+        <button type="submit" class="btn btn-sm font-code-sm text-code-sm font-bold" id="toggleModalSubmitBtn">
+          Konfirmasi
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// 1. Create Modal Controls
+function openCreateAccountModal() {
+  const modal = document.getElementById('createAccountModalBackdrop');
+  if (modal) modal.classList.add('show');
+}
+function closeCreateAccountModal() {
+  const modal = document.getElementById('createAccountModalBackdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+// 2. Edit Modal Controls
+function openEditModal(userId) {
+  fetch(`/admin-dashboard/${userId}/detail-json/`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('editModalUsername').textContent = data.username;
+      document.getElementById('editNamaInput').value = data.nama;
+      document.getElementById('editNipInput').value = data.nip;
+      document.getElementById('editRoleSelect').value = data.role;
+      document.getElementById('editIsActiveCheckbox').checked = data.is_active;
+      document.getElementById('editBoothSelect').value = data.booth;
+      document.getElementById('editShiftSelect').value = data.shift;
+
+      const form = document.getElementById('editAccountForm');
+      form.action = `/admin-dashboard/${userId}/edit/`;
+
+      const modal = document.getElementById('editAccountModalBackdrop');
+      if (modal) modal.classList.add('show');
+    })
+    .catch(err => {
+      showToastNotification('Gagal memuat rincian akun: ' + err, false);
+    });
+}
+function closeEditModal() {
+  const modal = document.getElementById('editAccountModalBackdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+// 3. Detail Modal Controls
+function openDetailModal(userId) {
+  fetch(`/admin-dashboard/${userId}/detail-json/`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('detailUsername').textContent = data.username;
+      document.getElementById('detailNama').textContent = data.nama;
+      document.getElementById('detailNip').textContent = 'NIP: ' + (data.nip || '-');
+      document.getElementById('detailRole').textContent = data.role;
+      document.getElementById('detailStatus').textContent = data.is_active ? 'ACTIVE (BERIZIN)' : 'INACTIVE (HOLD)';
+      document.getElementById('detailStatus').className = 'font-bold ' + (data.is_active ? 'text-emerald-400' : 'text-red-400');
+      document.getElementById('detailBooth').textContent = data.booth_display;
+      document.getElementById('detailShift').textContent = data.shift_display;
+      document.getElementById('detailLastLogin').textContent = data.last_login;
+
+      const modal = document.getElementById('detailAccountModalBackdrop');
+      if (modal) modal.classList.add('show');
+    })
+    .catch(err => {
+      showToastNotification('Gagal memuat detail akun: ' + err, false);
+    });
+}
+function closeDetailModal() {
+  const modal = document.getElementById('detailAccountModalBackdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+// 4. Toggle Modal Controls
+function openToggleModal(userId, username, isActive) {
+  const form = document.getElementById('toggleAccountForm');
+  form.action = `/admin-dashboard/${userId}/toggle/`;
+
+  const heading = document.getElementById('toggleModalHeading');
+  const icon = document.getElementById('toggleModalIcon');
+  const text = document.getElementById('toggleModalText');
+  const submitBtn = document.getElementById('toggleModalSubmitBtn');
+
+  if (isActive) {
+    heading.textContent = 'Konfirmasi Deaktivasi Akun';
+    heading.className = 'flex items-center gap-2 font-headline-sm text-headline-sm font-bold text-danger';
+    icon.textContent = 'block';
+    icon.className = 'material-symbols-outlined text-[20px] text-danger';
+    text.innerHTML = `Apakah Anda yakin ingin <strong>menonaktifkan</strong> akun operator <strong>[${username}]</strong>? Akun ini tidak akan dapat login ke dalam sistem Port Gate TOS hingga diaktifkan kembali.`;
+    submitBtn.className = 'btn btn-sm btn-danger font-code-sm text-code-sm font-bold';
+    submitBtn.textContent = 'Deaktivasi Akun';
+  } else {
+    heading.textContent = 'Konfirmasi Aktivasi Akun';
+    heading.className = 'flex items-center gap-2 font-headline-sm text-headline-sm font-bold text-success';
+    icon.textContent = 'check_circle';
+    icon.className = 'material-symbols-outlined text-[20px] text-success';
+    text.innerHTML = `Aktifkan kembali akun operator <strong>[${username}]</strong> agar dapat bertugas di gardu?`;
+    submitBtn.className = 'btn btn-sm btn-success font-code-sm text-code-sm font-bold';
+    submitBtn.textContent = 'Aktivasi Akun';
+  }
+
+  const modal = document.getElementById('toggleAccountModalBackdrop');
+  if (modal) modal.classList.add('show');
+}
+function closeToggleModal() {
+  const modal = document.getElementById('toggleAccountModalBackdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+// Hotkey: Escape closes modals
+window.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeCreateAccountModal();
+    closeEditModal();
+    closeDetailModal();
+    closeToggleModal();
+  }
+});
+</script>
+{% endblock %}

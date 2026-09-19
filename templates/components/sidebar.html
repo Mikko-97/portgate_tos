@@ -1,0 +1,217 @@
+{% load static %}
+{# Sidebar Navigasi Tetap (Fixed Left) - Source of Truth: Sidebar.tsx #}
+<aside class="tos-sidebar" id="tosSidebar">
+    <div class="d-flex flex-column">
+        {# 1. Logo & Terminal Brand Header #}
+        <a href="{% if is_admin_role %}{% url 'admin_dashboard' %}{% else %}{% url 'dashboard' %}{% endif %}" 
+           class="tos-sidebar-brand text-decoration-none" 
+           title="{% if is_admin_role %}Ke Admin Dashboard{% else %}Ke Dashboard Overview{% endif %}">
+            {% include 'components/logo.html' with logo_extra_class="me-1" %}
+            <div class="d-flex flex-column overflow-hidden text-start">
+                <span class="font-label-caps text-label-caps text-primary-container-label uppercase truncate" style="color: var(--color-on-primary-container); letter-spacing: 0.08em;">
+                    Port-Gate TOS
+                </span>
+                <span class="font-headline-sm text-body-xs font-bold text-white truncate" style="line-height: 1.2;">
+                    DERMAGA UTARA
+                </span>
+            </div>
+        </a>
+
+        {# 2. Status Banner (Admin Control vs Operator Booth) #}
+        {% if is_admin_role %}
+        <div class="tos-booth-banner">
+            <div class="d-flex align-items-center justify-content-between font-label-caps text-label-caps uppercase mb-1" style="color: var(--color-on-primary-container);">
+                <span class="d-flex align-items-center gap-1">
+                    <span class="tos-live-pulse-dot" style="background-color: #60a5fa;"></span>
+                    SYSTEM CONTROL
+                </span>
+                <span class="font-code-sm text-code-sm fw-bold" style="color: #93c5fd;">ADMIN</span>
+            </div>
+            <div class="font-code-md text-code-md text-white fw-bold">
+                CENTRAL CONTROL
+            </div>
+            <div class="font-body-xs text-body-xs" style="color: var(--color-on-primary-container);">
+                Role: Administrator (TOS Access)
+            </div>
+        </div>
+        {% else %}
+        <div class="tos-booth-banner">
+            <div class="d-flex align-items-center justify-content-between font-label-caps text-label-caps uppercase mb-1" style="color: var(--color-on-primary-container);">
+                <span class="d-flex align-items-center gap-1">
+                    <span class="tos-live-pulse-dot" style="background-color: var(--color-secondary-container);"></span>
+                    BOOTH AKTIF
+                </span>
+                <span class="font-code-sm text-code-sm fw-bold" style="color: var(--color-secondary-fixed);">LIVE</span>
+            </div>
+            <div class="font-code-md text-code-md text-white fw-bold">
+                {% if request.session.assigned_booth_label %}
+                    {{ request.session.assigned_booth_label|upper }}
+                {% elif request.user.is_authenticated and request.user.operator_profile.booth_aktif %}
+                    {{ request.user.operator_profile.get_booth_aktif_display|upper }}
+                {% else %}
+                    GATE INBOUND 03
+                {% endif %}
+            </div>
+            <div class="font-body-xs text-body-xs" style="color: var(--color-on-primary-container);">
+                {% if request.user.is_authenticated and request.user.operator_profile.shift_aktif %}
+                    {{ request.user.operator_profile.get_shift_aktif_display }}
+                {% else %}
+                    Shift 2 (16:00 - 00:00 WIB)
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# 3. Navigation Menu (Strict Role Isolation) #}
+        <nav class="tos-sidebar-nav">
+            {% if is_admin_role %}
+                {# ADMIN NAVIGATION: HANYA ACCOUNT MANAGEMENT #}
+                <a href="{% url 'admin_dashboard' %}" 
+                   class="tos-nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+                    <span class="material-symbols-outlined nav-icon" style="color: #60a5fa;">manage_accounts</span>
+                    <span>Account Management</span>
+                </a>
+            {% else %}
+                {# OPERATOR NAVIGATION: OPERATIONAL MENUS ONLY #}
+                {# Dashboard Overview #}
+                <a href="{% url 'dashboard' %}" 
+                   class="tos-nav-item {% if request.resolver_match.url_name == 'dashboard' or request.resolver_match.url_name == 'home' %}active{% endif %}">
+                    <span class="material-symbols-outlined nav-icon">dashboard</span>
+                    <span>Dashboard Overview</span>
+                </a>
+
+                {# Antrian & Gate In/Out #}
+                <a href="{% url 'queue_list' %}" 
+                   class="tos-nav-item d-flex justify-content-between {% if request.resolver_match.url_name in 'queue_list,gate_in,gate_out,gate_ticket,queue_detail,gate_cockpit' %}active{% endif %}">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="material-symbols-outlined nav-icon">view_kanban</span>
+                        <span>Antrian &amp; Gate In/Out</span>
+                    </div>
+                    {% if count_total %}
+                    <span class="tos-nav-badge font-code-sm">
+                        {{ count_total }}
+                    </span>
+                    {% elif count_aktif %}
+                    <span class="tos-nav-badge font-code-sm">
+                        {{ count_aktif }}
+                    </span>
+                    {% endif %}
+                </a>
+
+                {# Sub-modes indicator when Antrian is active #}
+                {% if request.resolver_match.url_name in 'queue_list,gate_in,gate_out,gate_ticket,queue_detail,gate_cockpit' %}
+                <div class="tos-sub-nav">
+                    <a href="{% url 'queue_list' %}" 
+                       class="tos-sub-nav-item {% if request.resolver_match.url_name == 'queue_list' %}active{% endif %}">
+                        ▪ Tabel Antrian
+                    </a>
+                    <a href="{% url 'gate_cockpit' %}" 
+                       class="tos-sub-nav-item d-flex align-items-center justify-content-between {% if request.resolver_match.url_name == 'gate_cockpit' %}active{% endif %}">
+                        <span>▪ Cockpit &amp; Matrix Jalur</span>
+                        <span class="tos-live-pulse-dot" style="background-color: var(--color-secondary-container);"></span>
+                    </a>
+                    <a href="{% url 'gate_in' %}" 
+                       class="tos-sub-nav-item {% if request.resolver_match.url_name == 'gate_in' %}active{% endif %}">
+                        ▪ Pendaftaran Gate In
+                    </a>
+                    <a href="{% url 'gate_out' %}" 
+                       class="tos-sub-nav-item {% if request.resolver_match.url_name == 'gate_out' %}active{% endif %}">
+                        ▪ Pemrosesan Gate Out
+                    </a>
+                </div>
+                {% endif %}
+
+                {# Master Data Terminal #}
+                <a href="{% url 'truck_master' %}" 
+                   class="tos-nav-item d-flex justify-content-between {% if request.resolver_match.url_name in 'truck_master,truck_create,truck_edit,driver_master,driver_create,driver_edit,expedition_master,expedition_create,expedition_edit,container_master,container_create,container_edit' %}active{% endif %}">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="material-symbols-outlined nav-icon">inventory_2</span>
+                        <span>Master Data TOS</span>
+                    </div>
+                </a>
+
+                {# Sub-modes indicator when Master Data is active #}
+                {% if request.resolver_match.url_name in 'truck_master,truck_create,truck_edit,driver_master,driver_create,driver_edit,expedition_master,expedition_create,expedition_edit,container_master,container_create,container_edit' %}
+                <div class="tos-sub-nav">
+                    <a href="{% url 'truck_master' %}" 
+                       class="tos-sub-nav-item {% if 'truck' in request.resolver_match.url_name %}active{% endif %}">
+                        ▪ Truk Armada &amp; CMS
+                    </a>
+                    <a href="{% url 'driver_master' %}" 
+                       class="tos-sub-nav-item {% if 'driver' in request.resolver_match.url_name %}active{% endif %}">
+                        ▪ Sopir Truk
+                    </a>
+                    <a href="{% url 'expedition_master' %}" 
+                       class="tos-sub-nav-item {% if 'expedition' in request.resolver_match.url_name %}active{% endif %}">
+                        ▪ Perusahaan Ekspedisi
+                    </a>
+                    <a href="{% url 'container_master' %}" 
+                       class="tos-sub-nav-item {% if 'container' in request.resolver_match.url_name %}active{% endif %}">
+                        ▪ Peti Kemas / Kontainer
+                    </a>
+                </div>
+                {% endif %}
+
+                {# Riwayat & Audit Log (Stage 8 - Audit Log) #}
+                <a href="{% url 'audit_log' %}" 
+                   class="tos-nav-item {% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}">
+                    <span class="material-symbols-outlined nav-icon">receipt_long</span>
+                    <span>Riwayat &amp; Audit Log</span>
+                </a>
+
+                {# Konfigurasi Kamera OCR (Stage 9) #}
+                <a href="{% url 'ocr_settings' %}" 
+                   class="tos-nav-item {% if request.resolver_match.url_name == 'ocr_settings' %}active{% endif %}">
+                    <span class="material-symbols-outlined nav-icon">photo_camera</span>
+                    <span>Konfigurasi OCR</span>
+                </a>
+            {% endif %}
+        </nav>
+    </div>
+
+    {# 4. User Session Info & Logout Action #}
+    <div class="tos-operator-footer">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <div class="tos-operator-avatar" {% if is_admin_role %}style="background-color: #1e3a8a;"{% endif %}>
+                <span class="material-symbols-outlined text-white" style="font-size: 18px;">
+                    {% if is_admin_role %}admin_panel_settings{% else %}person{% endif %}
+                </span>
+            </div>
+            <div class="d-flex flex-column overflow-hidden text-start">
+                <span class="font-label-caps text-label-caps uppercase" style="color: var(--color-on-primary-container);">
+                    {% if is_admin_role %}ADMINISTRATOR{% else %}OPERATOR BOOTH{% endif %}
+                </span>
+                <span class="font-body-xs text-body-xs fw-bold text-white truncate">
+                    {% if request.user.is_authenticated %}
+                        {% if request.user.operator_profile and request.user.operator_profile.nama %}
+                            {{ request.user.operator_profile.nama }}
+                        {% elif request.user.first_name %}
+                            {{ request.user.get_full_name }}
+                        {% else %}
+                            {{ request.user.username }}
+                        {% endif %}
+                    {% else %}
+                        Agus Haryanto
+                    {% endif %}
+                </span>
+                <span class="font-code-sm text-code-sm" style="color: var(--color-on-primary-container);">
+                    {% if is_admin_role %}
+                        ROLE: ADMIN
+                    {% elif request.user.is_authenticated and request.user.operator_profile.nip %}
+                        NIP: {{ request.user.operator_profile.nip }}
+                    {% elif request.user.is_authenticated %}
+                        USER: {{ request.user.username|upper }}
+                    {% else %}
+                        NIP: TOS-88421
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        <a href="{% url 'logout' %}" 
+           class="tos-btn-shift text-decoration-none"
+           title="Keluar Sistem">
+            <span class="material-symbols-outlined" style="font-size: 15px;">logout</span>
+            <span>{% if is_admin_role %}Keluar Sistem{% else %}Ganti Shift / Keluar{% endif %}</span>
+        </a>
+    </div>
+</aside>

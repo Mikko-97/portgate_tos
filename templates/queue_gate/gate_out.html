@@ -1,0 +1,517 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pemeriksaan &amp; Pemrosesan Gate Out — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- Top Command & Action Bar -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+    <div class="flex flex-col">
+      <div class="flex items-center gap-space-xs">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Disposisi &amp; Pemrosesan Gate Out
+        </span>
+        <span class="inline-flex items-center px-1.5 py-0.5 bg-secondary text-on-secondary text-label-caps font-label-caps font-bold uppercase" style="border-radius: 2px;">
+          OUTBOUND GATE
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Pemeriksaan fisik dokumen dan pelepasan armada truk kontainer keluar terminal (Alur: SELESAI &rarr; GATE OUT &rarr; KELUAR).
+      </p>
+    </div>
+
+    <!-- Header Quick Actions -->
+    <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+      <a
+        href="{% url 'queue_list' %}"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">format_list_bulleted</span>
+        <span>Tabel Antrian</span>
+      </a>
+
+      <a
+        href="{% url 'gate_cockpit' %}"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">grid_view</span>
+        <span>Cockpit Jalur</span>
+      </a>
+
+      <a
+        href="{% url 'gate_in' %}"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">login</span>
+        <span>Pendaftaran Gate In</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Operational KPI / Outbound Telemetry Strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 bg-surface-container-low border-b border-outline-variant divide-x divide-outline-variant text-on-surface">
+    <!-- KPI 1: Siap Gate Out (SELESAI) -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px] text-secondary">check_circle</span>
+        Siap Gate Out (Selesai Yard)
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-secondary">{{ count_selesai }}</span>
+        <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">Truk</span>
+      </div>
+    </div>
+
+    <!-- KPI 2: Sudah Keluar Hari Ini -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px] text-outline">output</span>
+        Sudah Keluar Hari Ini
+      </span>
+      <div class="flex items-baseline gap-1.5 mt-1">
+        <span class="font-code-lg text-headline-xl font-bold tracking-tight text-on-surface">{{ count_keluar }}</span>
+        <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">Truk</span>
+      </div>
+    </div>
+
+    <!-- KPI 3: Status Gardu Outbound -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px] text-primary">traffic</span>
+        Gardu Outbound Aktif
+      </span>
+      <div class="flex items-center gap-2 mt-1">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-primary-container text-on-primary-container font-code-sm text-[11px] font-bold">
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span>
+          OUT 01
+        </span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-primary-container text-on-primary-container font-code-sm text-[11px] font-bold">
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse"></span>
+          OUT 02
+        </span>
+      </div>
+    </div>
+
+    <!-- KPI 4: Petugas Booth Outbound -->
+    <div class="p-space-sm px-space-md flex flex-col justify-between">
+      <span class="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px] text-outline">badge</span>
+        Operator Bertugas
+      </span>
+      <div class="flex flex-col mt-0.5">
+        <span class="font-code-md text-code-md font-bold text-on-surface truncate">{{ op_info.nama_petugas }}</span>
+        <span class="font-code-sm text-[10px] text-on-surface-variant">{{ op_info.booth }} &bull; {{ op_info.shift }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Barcode Scanner Bar -->
+  <div class="bg-surface-container p-space-md border-b border-outline-variant">
+    <form method="GET" action="{% url 'gate_out' %}" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-4xl">
+      <div class="relative flex-1">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">
+          search
+        </span>
+        <input
+          type="text"
+          name="q"
+          id="searchGateOut"
+          value="{{ search_query }}"
+          placeholder="Scan barcode tiket / Ketik Nomor Antrian (misal: Q-0001) atau Plat Nomor Polisi (misal: B 9012 XYZ)..."
+          class="w-full h-10 ps-9 pe-4 bg-surface-container-lowest text-on-surface border border-outline-variant font-code-md text-code-md focus:border-secondary focus:outline-none uppercase"
+          style="border-radius: 2px;"
+          autocomplete="off"
+          autofocus
+        />
+      </div>
+      <button
+        type="submit"
+        class="h-10 px-space-lg bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer border-0 shrink-0"
+        style="border-radius: 2px;"
+      >
+        <span class="material-symbols-outlined text-[18px]">manage_search</span>
+        <span>CARI TRUK [ENTER]</span>
+      </button>
+
+      {% if search_query or selected_entry %}
+      <a
+        href="{% url 'gate_out' %}"
+        class="h-10 px-space-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center justify-center cursor-pointer text-decoration-none shrink-0"
+        style="border-radius: 2px;"
+      >
+        Reset
+      </a>
+      {% endif %}
+    </form>
+
+    {% if search_error %}
+    <div class="mt-2 p-space-sm bg-error-container text-on-error-container font-code-sm text-code-sm flex items-center gap-2 border border-error/50" style="border-radius: 2px;">
+      <span class="material-symbols-outlined text-[18px] text-error">error</span>
+      <span>{{ search_error }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Main Content Layout -->
+  <div class="p-space-md flex flex-col gap-space-md bg-background">
+
+    <!-- SELECTED TRUCK VERIFICATION & GATE OUT DISPATCH CARD -->
+    {% if selected_entry %}
+    <div class="bg-surface-container-lowest border border-outline-variant shadow-sm" style="border-radius: 2px;">
+      <!-- Verification Header Status Banner -->
+      <div class="p-space-md border-b border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-2 
+        {% if selected_entry.status == QueueStatus.SELESAI %}
+          bg-secondary/10 border-l-4 border-l-secondary
+        {% elif selected_entry.status == QueueStatus.KELUAR %}
+          bg-surface-container-low border-l-4 border-l-outline
+        {% else %}
+          bg-tertiary-container/20 border-l-4 border-l-tertiary-container
+        {% endif %}">
+        
+        <div class="flex items-center gap-2">
+          {% if selected_entry.status == QueueStatus.SELESAI %}
+            <span class="material-symbols-outlined text-secondary text-[24px]">verified</span>
+            <div>
+              <div class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span>ANTRIAN {{ selected_entry.no_antrian }}</span>
+                <span class="px-2 py-0.5 bg-secondary text-on-secondary font-code-sm text-[11px] font-bold uppercase">
+                  STATUS: SELESAI DI YARD (SIAP GATE OUT)
+                </span>
+              </div>
+              <span class="font-body-xs text-body-xs text-on-surface-variant">
+                Pekerjaan yard telah selesai. Verifikasi dokumen fisik sebelum konfirmasi buka palang gerbang keluar.
+              </span>
+            </div>
+          {% elif selected_entry.status == QueueStatus.KELUAR %}
+            <span class="material-symbols-outlined text-outline text-[24px]">task_alt</span>
+            <div>
+              <div class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span>ANTRIAN {{ selected_entry.no_antrian }}</span>
+                <span class="px-2 py-0.5 bg-surface-container-high text-on-surface font-code-sm text-[11px] font-bold uppercase">
+                  STATUS: KELUAR (GATE OUT SELESAI)
+                </span>
+              </div>
+              <span class="font-body-xs text-body-xs text-on-surface-variant">
+                Truk telah meninggalkan terminal pada {{ selected_entry.waktu_keluar|date:"d/m/Y H:i:s" }} WIB via {{ selected_entry.gerbang_lane }}.
+              </span>
+            </div>
+          {% else %}
+            <span class="material-symbols-outlined text-error text-[24px]">warning</span>
+            <div>
+              <div class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span>ANTRIAN {{ selected_entry.no_antrian }}</span>
+                <span class="px-2 py-0.5 bg-error text-on-error font-code-sm text-[11px] font-bold uppercase">
+                  STATUS: {{ selected_entry.get_status_display|upper }} (BELUM SELESAI)
+                </span>
+              </div>
+              <span class="font-body-xs text-body-xs text-error font-semibold">
+                PERINGATAN: Truk belum menyelesaikan pekerjaan di yard! Hanya status 'SELESAI' yang diizinkan untuk diproses Gate Out.
+              </span>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-code-sm text-[11px] text-on-surface-variant">
+            Durasi Total Terminal:
+          </span>
+          <span class="font-code-md text-code-md font-bold text-primary px-2 py-1 bg-surface-container" style="border-radius: 2px;">
+            {{ dwell_time_str }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Detail Grid Inspection -->
+      <div class="p-space-md grid grid-cols-1 lg:grid-cols-2 gap-space-md border-b border-outline-variant">
+        <!-- Panel 1: Data Armada & Pengemudi -->
+        <div class="flex flex-col gap-2 p-space-sm bg-surface-container-low border border-outline-variant" style="border-radius: 2px;">
+          <div class="flex items-center gap-1.5 border-b border-outline-variant pb-1.5">
+            <span class="material-symbols-outlined text-[16px] text-primary">local_shipping</span>
+            <span class="font-headline-sm text-sm font-bold text-on-surface uppercase">Identitas Armada &amp; Pengemudi</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 font-code-sm text-code-sm mt-1">
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Nomor Polisi Truk:</span>
+              <span class="font-bold text-on-surface text-[15px]">{{ selected_entry.truck.no_polisi }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Konfigurasi:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.truck.get_konfigurasi_display }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Nama Sopir:</span>
+              <span class="font-bold text-on-surface">{{ selected_entry.driver.nama }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Nomor SIM:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.driver.no_sim }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Perusahaan Ekspedisi:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.truck.expedisi.nama_perusahaan|default:'-' }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">RFID Tag CMS:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.truck.rfid_tag|default:'-' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Data Kontainer & Alokasi Muatan -->
+        <div class="flex flex-col gap-2 p-space-sm bg-surface-container-low border border-outline-variant" style="border-radius: 2px;">
+          <div class="flex items-center gap-1.5 border-b border-outline-variant pb-1.5">
+            <span class="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+            <span class="font-headline-sm text-sm font-bold text-on-surface uppercase">Muatan Kontainer &amp; Yard</span>
+          </div>
+
+          {% if selected_entry.container %}
+          <div class="grid grid-cols-2 gap-2 font-code-sm text-code-sm mt-1">
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Nomor Kontainer:</span>
+              <span class="font-bold text-secondary text-[15px]">{{ selected_entry.container.no_kontainer }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Ukuran &amp; Tipe:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.container.ukuran }} ft &bull; {{ selected_entry.container.tipe }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Nomor Segel (Seal):</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.container.seal_number|default:'-' }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Berat Kotor:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.container.berat_kotor|default:'0' }} KG</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Dokumen Referensi:</span>
+              <span class="font-semibold text-on-surface">{{ selected_entry.container.ref_dokumen|default:'-' }}</span>
+            </div>
+            <div>
+              <span class="text-outline text-[10px] uppercase d-block">Posisi Yard Terakhir:</span>
+              <span class="font-bold text-on-surface">
+                {% if selected_entry.alokasi_blok %}
+                  Blok {{ selected_entry.alokasi_blok }} / Bay {{ selected_entry.alokasi_bay|default:'-' }}
+                {% else %}
+                  -
+                {% endif %}
+              </span>
+            </div>
+          </div>
+          {% else %}
+          <div class="p-3 text-center text-outline font-code-sm text-code-sm my-auto">
+            Truk tidak membawa kontainer (Bobtail / Chassis Kosong).
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Operational Milestone Stepper Strip -->
+      <div class="px-space-md py-space-sm bg-surface-container-low border-b border-outline-variant font-code-sm text-[11px] flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1">
+          <span class="text-outline">Waktu Gate In:</span>
+          <span class="font-bold text-on-surface">{{ selected_entry.waktu_masuk|date:"d/m/Y H:i" }}</span>
+        </div>
+        <div class="text-outline">&bull;</div>
+        <div class="flex items-center gap-1">
+          <span class="text-outline">Mulai Proses:</span>
+          <span class="font-bold text-on-surface">{{ selected_entry.waktu_mulai_proses|date:"H:i"|default:"-" }}</span>
+        </div>
+        <div class="text-outline">&bull;</div>
+        <div class="flex items-center gap-1">
+          <span class="text-outline">Selesai Yard:</span>
+          <span class="font-bold text-secondary">{{ selected_entry.waktu_selesai|date:"H:i"|default:"-" }}</span>
+        </div>
+        <div class="text-outline">&bull;</div>
+        <div class="flex items-center gap-1">
+          <span class="text-outline">Waktu Gate Out:</span>
+          <span class="font-bold {% if selected_entry.waktu_keluar %}text-success{% else %}text-outline{% endif %}">
+            {{ selected_entry.waktu_keluar|date:"H:i"|default:"(Belum Keluar)" }}
+          </span>
+        </div>
+      </div>
+
+      <!-- CONFIRMATION ACTION BAR -->
+      {% if selected_entry.status == QueueStatus.SELESAI %}
+      <form method="POST" action="{% url 'gate_out' %}" id="formGateOutConfirm" class="p-space-md bg-surface-container flex flex-col md:flex-row items-stretch md:items-center justify-between gap-space-md">
+        {% csrf_token %}
+        <input type="hidden" name="entry_id" value="{{ selected_entry.pk }}">
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+          <!-- Pilih Jalur Outbound -->
+          <div class="flex flex-col">
+            <label for="id_gerbang_lane" class="font-label-caps text-label-caps text-outline uppercase mb-1">
+              Pilih Jalur Gate Out <span class="text-error">*</span>
+            </label>
+            {{ form.gerbang_lane }}
+          </div>
+
+          <!-- Catatan Disposisi -->
+          <div class="flex flex-col flex-1">
+            <label for="id_catatan" class="font-label-caps text-label-caps text-outline uppercase mb-1">
+              Catatan Pemeriksa Gerbang (Opsional)
+            </label>
+            {{ form.catatan }}
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0 pt-2 md:pt-0">
+          <a
+            href="{% url 'gate_out' %}"
+            class="h-10 px-space-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center cursor-pointer text-decoration-none"
+            style="border-radius: 2px;"
+          >
+            Batal [Esc]
+          </a>
+
+          <button
+            type="submit"
+            id="btnConfirmGateOut"
+            class="h-10 px-space-xl bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer border-0"
+            style="border-radius: 2px;"
+          >
+            <span class="material-symbols-outlined text-[18px]">output</span>
+            <span>KONFIRMASI GATE OUT &amp; BUKA PALANG [ENTER]</span>
+          </button>
+        </div>
+      </form>
+      {% elif selected_entry.status == QueueStatus.KELUAR %}
+      <div class="p-space-md bg-surface-container flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 text-on-surface font-code-sm text-code-sm">
+          <span class="material-symbols-outlined text-success">check_circle</span>
+          <span>Proses Gate Out untuk truk <strong>{{ selected_entry.truck.no_polisi }}</strong> telah selesai. Tiket dan audit log telah ditutup.</span>
+        </div>
+        <a
+          href="{% url 'gate_out' %}"
+          class="h-9 px-space-md bg-primary text-on-primary font-code-sm text-code-sm font-bold flex items-center cursor-pointer text-decoration-none"
+          style="border-radius: 2px;"
+        >
+          Proses Truk Berikutnya
+        </a>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- READY TO DISPATCH QUEUE TABLE (Status SELESAI di Yard) -->
+    <div class="bg-surface-container-lowest border border-outline-variant shadow-sm" style="border-radius: 2px;">
+      <div class="p-space-sm px-space-md bg-surface-container-low border-b border-outline-variant flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-secondary text-[18px]">queue</span>
+          <span class="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Daftar Armada Siap Gate Out (Status SELESAI di Yard)
+          </span>
+          <span class="px-1.5 py-0.5 bg-secondary text-on-secondary font-code-sm text-[10px] font-bold" style="border-radius: 2px;">
+            {{ ready_entries|length }} TRUK
+          </span>
+        </div>
+        <span class="font-code-sm text-[11px] text-on-surface-variant">
+          Klik tombol "PILIH &amp; GATE OUT" untuk memproses keluarnya armada
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left font-code-sm text-code-sm border-collapse">
+          <thead>
+            <tr class="bg-surface-container border-b border-outline-variant text-outline uppercase font-label-caps text-label-caps">
+              <th class="p-space-sm px-space-md">No. Antrian</th>
+              <th class="p-space-sm px-space-md">Plat Nomor Truk</th>
+              <th class="p-space-sm px-space-md">Ekspedisi</th>
+              <th class="p-space-sm px-space-md">Nama Sopir</th>
+              <th class="p-space-sm px-space-md">No. Kontainer</th>
+              <th class="p-space-sm px-space-md">Posisi Yard</th>
+              <th class="p-space-sm px-space-md">Waktu Selesai</th>
+              <th class="p-space-sm px-space-md">Dwell Time</th>
+              <th class="p-space-sm px-space-md text-end">Aksi Disposisi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant">
+            {% for item in ready_entries %}
+            <tr class="hover:bg-surface-container-low transition-colors {% if selected_entry and selected_entry.pk == item.pk %}bg-secondary/5 font-semibold{% endif %}">
+              <td class="p-space-sm px-space-md font-bold text-primary">
+                {{ item.no_antrian }}
+              </td>
+              <td class="p-space-sm px-space-md font-bold text-on-surface">
+                {{ item.truck.no_polisi }}
+              </td>
+              <td class="p-space-sm px-space-md text-on-surface-variant">
+                {{ item.truck.expedisi.nama_perusahaan|default:'-'|truncatechars:20 }}
+              </td>
+              <td class="p-space-sm px-space-md text-on-surface">
+                {{ item.driver.nama|truncatechars:18 }}
+              </td>
+              <td class="p-space-sm px-space-md font-bold text-secondary">
+                {{ item.container.no_kontainer|default:'(Bobtail)' }}
+              </td>
+              <td class="p-space-sm px-space-md text-on-surface-variant">
+                {% if item.alokasi_blok %}
+                  Blok {{ item.alokasi_blok }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td class="p-space-sm px-space-md text-on-surface">
+                {{ item.waktu_selesai|date:"H:i" }} WIB
+              </td>
+              <td class="p-space-sm px-space-md text-outline">
+                {{ item.dwell_time }}
+              </td>
+              <td class="p-space-sm px-space-md text-end">
+                <a
+                  href="{% url 'gate_out' %}?entry_id={{ item.pk }}"
+                  class="inline-flex items-center gap-1 h-7 px-space-sm bg-secondary text-on-secondary hover:bg-primary font-code-sm text-[11px] font-bold transition-colors text-decoration-none cursor-pointer"
+                  style="border-radius: 2px;"
+                  title="Pilih dan buka form konfirmasi Gate Out"
+                >
+                  <span class="material-symbols-outlined text-[14px]">output</span>
+                  <span>PILIH &amp; GATE OUT</span>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="9" class="p-6 text-center text-outline">
+                <div class="flex flex-col items-center justify-center gap-1">
+                  {% if search_query %}
+                    <span class="material-symbols-outlined text-outline text-[32px]">search_off</span>
+                    <span class="font-bold text-on-surface">Tidak Ada Armada Siap Gate Out yang Cocok</span>
+                    <span class="text-xs">Tidak ditemukan armada siap Gate Out dengan kata kunci "<strong>{{ search_query }}</strong>".</span>
+                    <a
+                      href="{% url 'gate_out' %}"
+                      class="mt-2 inline-flex items-center gap-1 h-7 px-3 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant font-code-sm text-code-sm text-decoration-none"
+                      style="border-radius: 2px;"
+                    >
+                      <span class="material-symbols-outlined text-[14px]">clear_all</span>
+                      <span>Reset Pencarian</span>
+                    </a>
+                  {% else %}
+                    <span class="material-symbols-outlined text-outline text-[32px]">check_circle</span>
+                    <span class="font-bold text-on-surface">Tidak Ada Antrian Menunggu Gate Out</span>
+                    <span class="text-xs">Saat ini tidak ada armada dengan status SELESAI di yard yang antri keluar terminal.</span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Cheat Sheet -->
+    <div class="p-space-sm bg-surface-container-low border border-outline-variant font-code-sm text-[11px] text-outline flex items-center justify-between flex-wrap gap-2" style="border-radius: 2px;">
+      <span class="font-bold text-on-surface">Pintasan Keyboard Gate Out:</span>
+      <span>[Enter] Cari Truk / Konfirmasi Gate Out</span>
+      <span>[Esc] Batal / Reset Pilihan</span>
+      <span>Alur Transisi Wajib: MENUNGGU &rarr; PROSES &rarr; SELESAI &rarr; GATE OUT (KELUAR)</span>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

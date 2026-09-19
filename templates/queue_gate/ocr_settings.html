@@ -1,0 +1,311 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pengaturan &amp; Kalibrasi Kamera OCR — Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. SUB-HEADER BREADCRUMB & STATUS BAR (Stitch UI: OcrSettingsView.tsx) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Pengaturan &amp; Kalibrasi Kamera OCR
+        </span>
+        <span class="inline-flex items-center px-1.5 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          {{ booth_name }}
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Diagnostik streaming RTSP kamera ANPR plat nomor, pengenal kode kontainer ISO 6346, dan kalibrasi sensor WIM.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Tombol Uji Sensor -->
+      <button
+        type="button"
+        onclick="runSensorDiagnostics();"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 cursor-pointer rounded transition-colors"
+        title="Uji Koneksi Seluruh Sensor &amp; Kamera Gardu"
+      >
+        <span class="material-symbols-outlined text-[16px] text-secondary">sensors</span>
+        <span>Uji Sensor</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="p-space-md flex flex-col gap-space-md max-w-5xl mx-auto w-full">
+    <!-- 2. LIVE CAMERA PREVIEWS (Stitch UI: OcrSettingsView.tsx) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+      <!-- CAM-01: CABIN & FRONT NOPOL -->
+      <div class="bg-surface-container-lowest border border-outline-variant p-space-sm shadow-sm">
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-outline-variant">
+          <span class="font-code-sm text-code-sm font-bold text-on-surface truncate me-2">
+            {{ cam1_info.name }} ({{ cam1_info.rtsp_url }})
+          </span>
+          <span class="font-label-caps text-[9px] bg-primary text-on-primary px-1.5 py-0.5 font-bold rounded flex-shrink-0">
+            {{ cam1_info.resolution }}
+          </span>
+        </div>
+        <div class="relative bg-primary h-48 overflow-hidden border border-outline/30 flex items-center justify-center rounded">
+          <img
+            class="w-full h-full object-cover opacity-90"
+            alt="Front camera feed"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCh-jxtvGN2RtIwZxEyBifBj0QD76pyq3OhbzLUVcT5_JTWhQyygr1Dacy6zxocfia9SZFld8hBdDe3RlpXbdzq7p3IU72XaXPW3pfFLvKbNXEwio0mycpiNTPLtGpSBwMkSmey2X--p_E9SFNVHSm4pzGsi7TMaVNVkgaM_Zi4K9zQZEvY0-I9yb56lmOGLkel26b4c4Qm4DJNNp7Q00DVoun2KXzNA2qILAM1-qyFHfqfncJynKU"
+            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&auto=format&fit=crop&q=60';"
+          />
+          <!-- Crosshair Grid Overlay -->
+          <div class="absolute inset-0 pointer-events-none border border-secondary/20 flex items-center justify-center">
+            <div class="w-24 h-12 border-2 border-secondary-fixed/70 rounded-sm"></div>
+          </div>
+          <!-- Overlay Top-Left Telemetry -->
+          <div class="absolute top-2 left-2 bg-primary/85 text-white font-code-sm text-[10px] px-1.5 py-0.5 rounded shadow">
+            FPS: {{ cam1_info.fps }} | BITRATE: {{ cam1_info.bitrate }}
+          </div>
+          <!-- Overlay Bottom-Right ANPR Score -->
+          <div class="absolute bottom-2 right-2 bg-secondary text-white font-code-sm text-xs font-bold px-2 py-0.5 rounded shadow">
+            ANPR SCORE: {{ cam1_info.anpr_score }}
+          </div>
+        </div>
+      </div>
+
+      <!-- CAM-02: SIDE / REAR ISO CONTAINER -->
+      <div class="bg-surface-container-lowest border border-outline-variant p-space-sm shadow-sm">
+        <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-outline-variant">
+          <span class="font-code-sm text-code-sm font-bold text-on-surface truncate me-2">
+            {{ cam2_info.name }} ({{ cam2_info.rtsp_url }})
+          </span>
+          <span class="font-label-caps text-[9px] bg-primary text-on-primary px-1.5 py-0.5 font-bold rounded flex-shrink-0">
+            {{ cam2_info.resolution }}
+          </span>
+        </div>
+        <div class="relative bg-primary h-48 overflow-hidden border border-outline/30 flex items-center justify-center rounded">
+          <img
+            class="w-full h-full object-cover opacity-90"
+            alt="Side container camera feed"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMZ4ySM4ZbtS5TfW5SqKT_DJ9IWFypdZRm32usA3TIDHW9RZdlDVbRESb9PHaLxZ-WtURaOT6DpKoO_N07j8s3y76jbf8AIbfREunHcy1hChLBnK5A9VPOe1a4u70A0I0z1xKoHF42Rc_CD-WKq6TCaKkpCWKtxgGbGTeFRYGXdxcWjb-yPEfq0ER6Ywm-ycJPL54tob8drnTkOYcUt7NOMO_lsxEfzpi4MG8xySUVMVx5ElURdpA"
+            onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=60';"
+          />
+          <!-- Crosshair Grid Overlay -->
+          <div class="absolute inset-0 pointer-events-none border border-primary/20 flex items-center justify-center">
+            <div class="w-32 h-16 border-2 border-primary-fixed/70 rounded-sm"></div>
+          </div>
+          <!-- Overlay Top-Left Telemetry -->
+          <div class="absolute top-2 left-2 bg-primary/85 text-white font-code-sm text-[10px] px-1.5 py-0.5 rounded shadow">
+            FPS: {{ cam2_info.fps }} | BITRATE: {{ cam2_info.bitrate }}
+          </div>
+          <!-- Overlay Bottom-Right ISO Status -->
+          <div class="absolute bottom-2 right-2 bg-primary-container text-white font-code-sm text-xs font-bold px-2 py-0.5 rounded shadow">
+            ISO 6346: {{ cam2_info.iso_status }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. CONFIGURATION PARAMETERS FORM (Stitch UI: OcrSettingsView.tsx) -->
+    <form method="POST" action="{% url 'ocr_settings' %}" class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-sm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save">
+
+      <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-4">
+        <div>
+          <span class="font-headline-sm text-headline-sm text-on-surface font-semibold block">
+            Parameter Ambang Batas (Threshold) Gardu
+          </span>
+          <span class="font-body-xs text-body-xs text-on-surface-variant">
+            Konfigurasi tersimpan pada memori session Edge Gateway Controller Booth 03.
+          </span>
+        </div>
+        <span class="font-code-sm text-[11px] text-secondary font-bold px-2 py-0.5 bg-secondary-fixed/20 rounded">
+          GATEWAY CONTROLLER READY
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+        <!-- OCR Minimum Confidence Threshold -->
+        <div class="bg-surface-container-low p-3 border border-outline-variant rounded">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="font-label-caps text-label-caps text-outline uppercase font-bold m-0">
+              Tingkat Keyakinan OCR Minimum:
+            </label>
+            <span class="font-code-md text-code-md font-bold text-secondary">
+              <span id="ocrConfidenceValue">{{ ocr_confidence }}</span>%
+            </span>
+          </div>
+          <input
+            type="range"
+            min="80"
+            max="99"
+            name="ocr_confidence"
+            value="{{ ocr_confidence }}"
+            id="ocrConfidenceInput"
+            oninput="document.getElementById('ocrConfidenceValue').innerText = this.value;"
+            class="w-full h-2 bg-surface-container accent-secondary cursor-pointer"
+          />
+          <span class="font-body-xs text-body-xs text-outline block mt-1.5">
+            Jika skor pengenalan di bawah nilai ini, sistem otomatis meminta konfirmasi manual operator.
+          </span>
+        </div>
+
+        <!-- WIM Overweight Tolerance -->
+        <div class="bg-surface-container-low p-3 border border-outline-variant rounded">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="font-label-caps text-label-caps text-outline uppercase font-bold m-0">
+              Toleransi Kelebihan Muatan WIM:
+            </label>
+            <span class="font-code-md text-code-md font-bold text-secondary">
+              <span id="wimToleranceValue">{{ wim_tolerance }}</span>%
+            </span>
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="10"
+            name="wim_tolerance"
+            value="{{ wim_tolerance }}"
+            id="wimToleranceInput"
+            oninput="document.getElementById('wimToleranceValue').innerText = this.value;"
+            class="w-full h-2 bg-surface-container accent-secondary cursor-pointer"
+          />
+          <span class="font-body-xs text-body-xs text-outline block mt-1.5">
+            Batas deviasi berat timbangan sebelum memicu alarm penahanan otomatis (HOLD Overweight).
+          </span>
+        </div>
+      </div>
+
+      <!-- Auto-Open Barrier Option -->
+      <div class="flex items-center gap-2 pt-4 border-t border-outline-variant mt-4">
+        <input
+          type="checkbox"
+          id="autoBarrier"
+          name="auto_open_barrier"
+          {% if auto_open_barrier %}checked{% endif %}
+          class="w-4 h-4 text-secondary rounded border-outline-variant focus:ring-0 cursor-pointer"
+        />
+        <label htmlFor="autoBarrier" class="font-body-sm text-body-sm text-on-surface cursor-pointer select-none">
+          Otomatis Buka Barrier jika OCR &gt; 98% dan Dokumen SPPB CEISA Valid
+        </label>
+      </div>
+
+      <!-- Operational Architecture Disclosure Banner -->
+      <div class="mt-4 p-3 bg-surface-container-low border border-outline-variant/60 rounded flex items-start gap-2.5">
+        <span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">info</span>
+        <div class="font-body-xs text-body-xs text-on-surface-variant">
+          <strong class="text-on-surface">Catatan Arsitektur Gateway Edge TOS:</strong> Parameter kalibrasi di atas mengatur ambang toleransi controller hardware gardu (ANPR camera, WIM bridge scale, loop detector). Pengenalan plat &amp; nomor kontainer aktual terhubung melalui protokol RTSP/HTTP feed.
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-outline-variant flex-wrap">
+        <button
+          type="button"
+          onclick="resetDefaults();"
+          class="h-9 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant font-code-sm text-code-sm rounded cursor-pointer transition-colors"
+        >
+          Reset Standar Pabrik
+        </button>
+
+        <button
+          type="submit"
+          class="h-9 px-space-lg bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold rounded shadow-sm cursor-pointer transition-colors"
+        >
+          Simpan Konfigurasi Gardu
+        </button>
+      </div>
+    </form>
+
+    <!-- Hidden Reset Form -->
+    <form id="resetOcrForm" method="POST" action="{% url 'ocr_settings' %}" class="d-none">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset">
+    </form>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- 4. SENSOR DIAGNOSTICS MODAL (#sensorModal)                        -->
+<!-- ================================================================= -->
+<div class="modal fade" id="sensorModal" tabindex="-1" aria-labelledby="sensorModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="sensorModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">sensors</span>
+          Diagnostik Sensor Gardu Inbound 03
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-4 space-y-2.5 font-code-sm text-code-sm">
+        <div class="p-2.5 bg-surface-container-low border border-outline-variant flex items-center justify-between rounded">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">videocam</span>
+            <span>CAM-01 (Cabin / Plat Depan)</span>
+          </div>
+          <span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded text-[10px] font-bold">ONLINE 60FPS</span>
+        </div>
+
+        <div class="p-2.5 bg-surface-container-low border border-outline-variant flex items-center justify-between rounded">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">videocam</span>
+            <span>CAM-02 (ISO Kontainer Samping)</span>
+          </div>
+          <span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded text-[10px] font-bold">ONLINE 60FPS</span>
+        </div>
+
+        <div class="p-2.5 bg-surface-container-low border border-outline-variant flex items-center justify-between rounded">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">scale</span>
+            <span>WIM Dynamic Scale Sensor</span>
+          </div>
+          <span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded text-[10px] font-bold">KALIBRASI OK</span>
+        </div>
+
+        <div class="p-2.5 bg-surface-container-low border border-outline-variant flex items-center justify-between rounded">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">contactless</span>
+            <span>RFID Transponder Reader</span>
+          </div>
+          <span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded text-[10px] font-bold">UHF ACTIVE</span>
+        </div>
+
+        <div class="p-2.5 bg-surface-container-low border border-outline-variant flex items-center justify-between rounded">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary text-[18px]">door_sliding</span>
+            <span>Boom Barrier Relay Control</span>
+          </div>
+          <span class="px-2 py-0.5 bg-primary-fixed text-on-primary-fixed rounded text-[10px] font-bold">RESPONS 12ms</span>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-between">
+        <span class="text-secondary font-code-sm text-[11px] font-bold">
+          SELURUH SUBSISTEM BEROPERASI NORMAL
+        </span>
+        <button type="button" class="btn btn-sm btn-secondary font-code-sm" data-bs-dismiss="modal">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function runSensorDiagnostics() {
+    const modalEl = document.getElementById('sensorModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+      const modalInstance = new bootstrap.Modal(modalEl);
+      modalInstance.show();
+    } else {
+      alert('Diagnostik seluruh kamera gardu: KONEKSI BAIK 60FPS (CAM-01, CAM-02, WIM, RFID, Barrier OK)');
+    }
+  }
+
+  function resetDefaults() {
+    if (confirm('Kembalikan konfigurasi ambang batas gardu ke standar pabrik (OCR 95%, WIM 5%)?')) {
+      document.getElementById('resetOcrForm').submit();
+    }
+  }
+</script>
+{% endblock %}

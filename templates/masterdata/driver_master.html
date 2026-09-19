@@ -1,0 +1,450 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Master Data Sopir Truk — Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. SUB-HEADER BREADCRUMB & ACTION BAR -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Master Data Sopir Truk Berlisensi
+        </span>
+        <span class="inline-flex items-center px-2 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          {{ total_drivers|default:0 }} SOPIR TERDAFTAR
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Database pengemudi armada angkutan peti kemas berlisensi resmi Terminal Pelabuhan.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        onclick="openAddModal();"
+        class="h-9 px-space-md bg-primary-container hover:bg-primary text-on-primary border border-primary font-code-md text-code-md flex items-center gap-1.5 font-bold cursor-pointer rounded transition-colors"
+      >
+        <span class="material-symbols-outlined text-[18px]">add</span>
+        <span>+ Registrasi Sopir Baru</span>
+      </button>
+    </div>
+  </div>
+
+  {% include 'masterdata/_tabs.html' %}
+
+  <!-- 2. KPI CARDS -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 px-space-md mb-4">
+    <!-- Card 1: Total Sopir -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-outline text-label-caps font-label-caps uppercase">
+        <span>Total Sopir</span>
+        <span class="material-symbols-outlined text-[18px]">badge</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-surface font-code-lg">{{ total_drivers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Terdata di database TOS</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Sopir Aktif -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-secondary text-label-caps font-label-caps uppercase">
+        <span>Lisensi Aktif</span>
+        <span class="material-symbols-outlined text-[18px] text-secondary">verified</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-secondary font-code-lg">{{ active_drivers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Memenuhi syarat bertugas</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Sopir Terikat Armada -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-primary text-label-caps font-label-caps uppercase">
+        <span>Terikat Truk Tetap</span>
+        <span class="material-symbols-outlined text-[18px] text-primary">link</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-primary font-code-lg">{{ assigned_drivers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Driver tetap unit armada</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Non-Aktif / Hold -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-on-tertiary-container text-label-caps font-label-caps uppercase">
+        <span>Hold / Non-Aktif</span>
+        <span class="material-symbols-outlined text-[18px] text-on-tertiary-container">block</span>
+      </div>
+      <div class="mt-2">
+        <div class="font-headline-lg text-headline-lg font-bold text-on-tertiary-container font-code-lg">{{ inactive_drivers }}</div>
+        <div class="text-[11px] text-on-surface-variant mt-0.5">Izin tugas ditangguhkan</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-space-md flex flex-col gap-space-md">
+    <!-- 3. SEARCH & FILTER TOOLSTRIP -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3">
+      <form method="GET" action="{% url 'driver_master' %}" class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 m-0">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <!-- Quick Search -->
+          <div class="relative flex-1 min-w-[240px] max-w-md">
+            <span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-outline">search</span>
+            <input
+              name="search"
+              value="{{ search_query }}"
+              class="w-full h-8 pl-8 pr-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+              placeholder="Cari Nama Sopir, Nomor SIM, atau No. HP..."
+              type="text"
+            />
+          </div>
+
+          <!-- Filter Status Lisensi -->
+          <select
+            name="status"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Status Lisensi</option>
+            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Status: Aktif</option>
+            <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Status: Non-Aktif</option>
+          </select>
+
+          <button
+            type="submit"
+            class="h-8 px-3 bg-secondary text-on-secondary font-code-sm text-code-sm font-semibold rounded hover:bg-primary transition-colors cursor-pointer border-0"
+          >
+            Filter
+          </button>
+
+          {% if search_query or status_filter %}
+            <a
+              href="{% url 'driver_master' %}"
+              class="h-8 px-2.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-code-sm text-code-sm flex items-center gap-1 rounded border border-outline-variant text-decoration-none"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+              Reset
+            </a>
+          {% endif %}
+        </div>
+
+        <div class="text-on-surface-variant font-code-sm text-code-sm self-center">
+          Menampilkan <strong>{{ page_obj.start_index|default:0 }}-{{ page_obj.end_index|default:0 }}</strong> dari <strong>{{ filtered_count }}</strong> sopir
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. TABEL MASTER DATA SOPIR -->
+    <div class="bg-surface-container-lowest border border-outline-variant shadow-sm" style="border-radius: 2px;">
+      <div class="table-responsive" style="overflow-x: auto;">
+        <table class="w-full text-left border-collapse font-body-sm text-body-sm" style="min-width: 800px;">
+          <thead>
+            <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none border-b border-outline-variant">
+              <th class="py-2.5 px-3" style="width: 220px;">Nama Sopir</th>
+              <th class="py-2.5 px-3" style="width: 180px;">Nomor SIM</th>
+              <th class="py-2.5 px-3" style="width: 160px;">No. HP / WhatsApp</th>
+              <th class="py-2.5 px-3" style="width: 180px;">Truk Tetap Terkait</th>
+              <th class="py-2.5 px-3 text-center" style="width: 120px;">Status Lisensi</th>
+              <th class="py-2.5 px-3" style="width: 130px;">Tgl Terdaftar</th>
+              <th class="py-2.5 px-3 text-end pe-4" style="width: 150px;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-outline-variant/60">
+            {% for drv in drivers %}
+              <tr class="hover:bg-surface-container transition-colors">
+                <!-- Nama Sopir -->
+                <td class="py-2.5 px-3">
+                  <div class="font-body-md font-bold text-on-surface">{{ drv.nama }}</div>
+                  <div class="text-on-surface-variant font-code-sm text-[10px]">ID: DRV-{{ drv.id|stringformat:"04d" }}</div>
+                </td>
+
+                <!-- Nomor SIM -->
+                <td class="py-2.5 px-3 font-code-sm font-semibold text-on-surface">
+                  <span class="px-1.5 py-0.5 bg-surface-container border border-outline-variant rounded">
+                    {{ drv.no_sim }}
+                  </span>
+                </td>
+
+                <!-- No HP -->
+                <td class="py-2.5 px-3 font-code-sm text-on-surface">
+                  <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[14px] text-outline">call</span>
+                    <span>{{ drv.no_hp }}</span>
+                  </div>
+                </td>
+
+                <!-- Truk Tetap -->
+                <td class="py-2.5 px-3">
+                  {% with default_truck=drv.trucks.first %}
+                    {% if default_truck %}
+                      <span class="font-code-sm font-bold text-secondary">
+                        {{ default_truck.no_polisi }}
+                      </span>
+                      <span class="text-on-surface-variant text-[10px] d-block">{{ default_truck.expedisi.nama_perusahaan|truncatechars:18 }}</span>
+                    {% else %}
+                      <span class="text-outline fst-italic text-code-sm text-[11px]">- Chassis Bebas -</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+
+                <!-- Status Lisensi -->
+                <td class="py-2.5 px-3 text-center">
+                  {% if drv.is_active %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary-fixed text-on-secondary-fixed font-label-caps font-bold text-[10px] rounded">
+                      <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                      AKTIF
+                    </span>
+                  {% else %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-tertiary-container/20 text-on-tertiary-container font-label-caps font-bold text-[10px] rounded border border-tertiary-container/40">
+                      <span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>
+                      HOLD
+                    </span>
+                  {% endif %}
+                </td>
+
+                <!-- Tanggal Terdaftar -->
+                <td class="py-2.5 px-3 font-code-sm text-on-surface-variant text-[11px]">
+                  {{ drv.created_at|date:"d/m/Y" }}
+                </td>
+
+                <!-- Aksi -->
+                <td class="py-2.5 px-3 text-end pe-4">
+                  <div class="inline-flex items-center gap-1.5">
+                    <!-- Tombol Edit -->
+                    <button
+                      type="button"
+                      onclick="openEditModal({{ drv.pk }});"
+                      class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface font-code-sm text-[11px] border border-outline-variant rounded flex items-center gap-1 cursor-pointer"
+                      title="Edit Data Sopir"
+                    >
+                      <span class="material-symbols-outlined text-[13px]">edit</span>
+                      Edit
+                    </button>
+
+                    <!-- Tombol Toggle Aktif/Nonaktif -->
+                    <form method="POST" action="{% url 'driver_toggle' drv.pk %}" class="d-inline m-0" onsubmit="return confirm('Apakah Anda yakin ingin mengubah status aktif sopir {{ drv.nama }}?');">
+                      {% csrf_token %}
+                      {% if drv.is_active %}
+                        <button
+                          type="submit"
+                          class="h-7 px-1.5 bg-surface-container hover:bg-tertiary-container/20 text-on-tertiary-container border border-outline-variant rounded flex items-center justify-center cursor-pointer"
+                          title="Nonaktifkan Sopir (Hold Lisensi)"
+                        >
+                          <span class="material-symbols-outlined text-[15px]">block</span>
+                        </button>
+                      {% else %}
+                        <button
+                          type="submit"
+                          class="h-7 px-1.5 bg-secondary hover:bg-primary text-on-secondary border-0 rounded flex items-center justify-center cursor-pointer"
+                          title="Aktifkan Kembali Lisensi Sopir"
+                        >
+                          <span class="material-symbols-outlined text-[15px]">check_circle</span>
+                        </button>
+                      {% endif %}
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="text-center py-6 text-on-surface-variant">
+                  <div class="flex flex-col items-center justify-center gap-2 py-4">
+                    <span class="material-symbols-outlined text-outline text-[40px]">person_off</span>
+                    <span class="font-headline-sm text-on-surface font-semibold">Tidak Ada Data Sopir</span>
+                    <p class="font-body-xs text-outline max-w-md mb-2">
+                      {% if search_query or status_filter %}
+                        Tidak ditemukan sopir yang cocok dengan filter pencarian saat ini.
+                      {% else %}
+                        Belum ada pengemudi yang terdaftar dalam master data.
+                      {% endif %}
+                    </p>
+                    <button
+                      type="button"
+                      onclick="openAddModal();"
+                      class="h-8 px-4 bg-primary-container hover:bg-primary text-on-primary font-code-md text-code-md font-bold rounded cursor-pointer border-0"
+                    >
+                      + Registrasi Sopir Sekarang
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginasi -->
+      {% if page_obj.has_other_pages %}
+        <div class="p-3 border-t border-outline-variant flex items-center justify-between flex-wrap gap-2 font-code-sm text-code-sm">
+          <div class="text-on-surface-variant">
+            Halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }}
+          </div>
+          <div class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center gap-1 text-decoration-none">
+                &laquo; Prev
+              </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+              {% if page_obj.number == num %}
+                <span class="h-7 px-2.5 bg-primary text-on-primary font-bold rounded flex items-center justify-center">{{ num }}</span>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center justify-center text-decoration-none">{{ num }}</a>
+              {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded flex items-center gap-1 text-decoration-none">
+                Next &raquo;
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL REGISTRASI SOPIR BARU                                       -->
+<!-- ================================================================= -->
+<div class="modal fade" id="addDriverModal" tabindex="-1" aria-labelledby="addDriverModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="addDriverModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">badge</span>
+          Registrasi Sopir Truk Baru
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" action="{% url 'driver_create' %}" id="addDriverForm">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nama Lengkap Sopir <span class="text-error">*</span>
+            </label>
+            {{ driver_form.nama }}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nomor SIM B2 Umum <span class="text-error">*</span>
+            </label>
+            {{ driver_form.no_sim }}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nomor HP / WhatsApp <span class="text-error">*</span>
+            </label>
+            {{ driver_form.no_hp }}
+          </div>
+
+          <div class="form-check form-switch pt-2">
+            <input class="form-check-input" type="checkbox" name="is_active" id="addDriverActiveSwitch" checked>
+            <label class="form-check-label font-body-sm text-on-surface ms-2" for="addDriverActiveSwitch">
+              <strong>Lisensi Aktif (Siap Bertugas)</strong>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">Simpan Sopir</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================= -->
+<!-- MODAL EDIT SOPIR                                                  -->
+<!-- ================================================================= -->
+<div class="modal fade" id="editDriverModal" tabindex="-1" aria-labelledby="editDriverModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface-container-lowest border border-outline-variant text-on-surface shadow-lg">
+      <div class="modal-header bg-primary text-on-primary py-2.5 px-4 border-b border-primary-container">
+        <h5 class="modal-title font-headline-sm text-headline-sm font-bold flex items-center gap-2" id="editDriverModalLabel">
+          <span class="material-symbols-outlined text-[20px] text-secondary-fixed">edit</span>
+          Edit Data Sopir
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form method="POST" id="editDriverForm" action="">
+        {% csrf_token %}
+        <div class="modal-body p-4 space-y-3 font-body-sm">
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nama Lengkap Sopir <span class="text-error">*</span>
+            </label>
+            <input type="text" name="nama" id="editDriverNama" class="form-control font-body-md text-body-md" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nomor SIM B2 Umum <span class="text-error">*</span>
+            </label>
+            <input type="text" name="no_sim" id="editDriverNoSim" class="form-control font-code-md text-code-md uppercase" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label font-label-caps text-label-caps uppercase text-outline fw-bold">
+              Nomor HP / WhatsApp <span class="text-error">*</span>
+            </label>
+            <input type="text" name="no_hp" id="editDriverNoHp" class="form-control font-code-sm text-code-sm" required>
+          </div>
+
+          <div class="form-check form-switch pt-2">
+            <input class="form-check-input" type="checkbox" name="is_active" id="editDriverActiveSwitch">
+            <label class="form-check-label font-body-sm text-on-surface ms-2" for="editDriverActiveSwitch">
+              <strong>Lisensi Aktif (Siap Bertugas)</strong>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer bg-surface-container-low py-2 px-4 border-t border-outline-variant flex justify-end gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary font-code-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary font-code-sm fw-bold">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAddModal() {
+  const modal = new bootstrap.Modal(document.getElementById('addDriverModal'));
+  modal.show();
+}
+
+function openEditModal(driverId) {
+  fetch(`/driver-master/${driverId}/detail-json/`)
+    .then(response => {
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
+    })
+    .then(data => {
+      document.getElementById('editDriverNama').value = data.nama || '';
+      document.getElementById('editDriverNoSim').value = data.no_sim || '';
+      document.getElementById('editDriverNoHp').value = data.no_hp || '';
+      document.getElementById('editDriverActiveSwitch').checked = Boolean(data.is_active);
+      document.getElementById('editDriverForm').action = `/driver-master/${driverId}/edit/`;
+
+      const modal = new bootstrap.Modal(document.getElementById('editDriverModal'));
+      modal.show();
+    })
+    .catch(error => {
+      alert('Gagal mengambil data sopir: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

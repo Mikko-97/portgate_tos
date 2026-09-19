@@ -1,0 +1,93 @@
+{# Header Telemetri Tetap (Fixed Top) - Source of Truth: Header.tsx #}
+<header class="tos-header" id="tosHeader">
+    {# Left Telemetry Info #}
+    <div class="d-flex align-items-center gap-3 overflow-hidden">
+        <div class="tos-telemetry-pill d-flex align-items-center gap-1 font-code-sm text-code-sm" id="tosLinkChip">
+            <span class="material-symbols-outlined text-secondary" id="tosSyncIcon" style="font-size: 16px;">
+                sync_alt
+            </span>
+            <span class="fw-semibold">TOS LINK: NORMAL</span>
+            <span class="text-secondary opacity-50">|</span>
+            <span class="text-body-secondary font-monospace" style="font-size: 11px;">14ms</span>
+        </div>
+
+        <div class="d-none d-xl-flex align-items-center gap-1 font-label-caps text-label-caps text-secondary text-uppercase">
+            {% if is_admin_role %}
+                <span class="material-symbols-outlined text-primary" style="font-size: 15px;">admin_panel_settings</span>
+                <span>PORT GATE TOS</span>
+                <span class="opacity-50">/</span>
+                <span class="text-primary fw-bold">ADMIN</span>
+                <span class="opacity-50">/</span>
+                <span class="text-dark fw-semibold">ACCOUNT MANAGEMENT</span>
+            {% else %}
+                <span class="material-symbols-outlined" style="font-size: 14px;">domain</span>
+                <span>Terminal: Koja Gate 1-4</span>
+                <span class="opacity-50">/</span>
+                <span class="text-dark fw-semibold">Inbound Control</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Right Actions & Realtime Clock #}
+    <div class="d-flex align-items-center gap-2">
+        <div class="d-none d-lg-flex flex-column text-end font-code-sm text-code-sm">
+            <span class="fw-semibold text-dark" id="headerLiveClock">Memuat waktu...</span>
+            <span class="font-body-xs text-body-xs text-secondary">
+                {% if is_admin_role %}
+                    Role: Administrator • Central System Control
+                {% elif request.user.is_authenticated and request.user.operator_profile.shift_aktif %}
+                    {{ request.user.operator_profile.get_shift_aktif_display }}
+                    • SPV: Danang Prasetyo
+                {% else %}
+                    Shift 2 (16:00 - 00:00 WIB)
+                    • SPV: Danang Prasetyo
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="d-none d-sm-block bg-secondary opacity-25" style="width: 1px; height: 24px;"></div>
+
+        <div class="d-flex align-items-center gap-1">
+            {# F5 Sync #}
+            <button type="button" 
+                    class="tos-btn-header-sync"
+                    id="btnHeaderSync"
+                    onclick="window.location.reload();"
+                    title="Muat Ulang Halaman [F5]">
+                <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span>
+                <span class="d-none d-md-inline">F5 Sync</span>
+            </button>
+
+            {% if not is_admin_role %}
+                {# F8 Panggil PA (Operator Only) #}
+                <button type="button" 
+                        class="tos-btn-header-pa"
+                        id="btnHeaderPA"
+                        onclick="openPAModal();"
+                        title="Panggil Truk Suara PA [F8]">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">campaign</span>
+                    <span class="d-none d-md-inline">F8 Panggil</span>
+                </button>
+
+                {# F9 Insiden (Operator Only) #}
+                <button type="button" 
+                        class="tos-btn-header-incident"
+                        id="btnHeaderIncident"
+                        onclick="openIncidentModal();"
+                        title="Lapor Insiden Gerbang [F9]">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">report_problem</span>
+                    <span class="d-none d-md-inline">F9 Insiden</span>
+                </button>
+            {% endif %}
+        </div>
+
+        {# Profile Avatar #}
+        <div class="tos-header-avatar"
+             onclick="showToastNotification('{% if is_admin_role %}Administrator: {{ request.user.username }} • Central Control{% else %}Petugas: {% if request.user.is_authenticated %}{% if request.user.operator_profile and request.user.operator_profile.nama %}{{ request.user.operator_profile.nama }}{% elif request.user.first_name %}{{ request.user.get_full_name }}{% else %}{{ request.user.username }}{% endif %}{% else %}Agus Haryanto{% endif %} • Booth: {% if request.session.assigned_booth_label %}{{ request.session.assigned_booth_label }}{% else %}Gate Inbound 03{% endif %}{% endif %}');"
+             title="Profil {% if is_admin_role %}Administrator ({{ request.user.username }}){% else %}Petugas ({% if request.user.is_authenticated %}{{ request.user.username }}{% else %}Agus Haryanto{% endif %}){% endif %}">
+            <span class="material-symbols-outlined text-white" style="font-size: 18px;">
+                {% if is_admin_role %}admin_panel_settings{% else %}person{% endif %}
+            </span>
+        </div>
+    </div>
+</header>

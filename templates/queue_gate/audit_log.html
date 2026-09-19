@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Riwayat &amp; Audit Log Operasional Gerbang — Port-Gate TOS{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. SUB-HEADER BREADCRUMB & STATUS BAR (Stitch UI: AuditLogView.tsx) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm mb-4">
+    <div>
+      <div class="flex items-center gap-space-xs flex-wrap">
+        <span class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          Riwayat &amp; Audit Log Operasional Gerbang
+        </span>
+        <span class="inline-flex items-center px-1.5 py-0.5 bg-primary-container text-primary-fixed text-label-caps font-label-caps border border-primary font-bold rounded">
+          LOG AKTIF ({{ total_logs }} ENTRIES)
+        </span>
+      </div>
+      <p class="font-body-xs text-body-xs text-on-surface-variant mt-0.5 mb-0">
+        Audit trail tersertifikasi seluruh aktivitas pemindaian OCR, timbangan WIM, dan approval palang gerbang.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Export Log Button -->
+      <a
+        href="?export=csv{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+        class="h-8 px-space-sm bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 cursor-pointer rounded text-decoration-none transition-colors"
+        title="Download Audit Log Lengkap dalam Format CSV"
+      >
+        <span class="material-symbols-outlined text-[16px]">file_download</span>
+        <span>Export Log CSV</span>
+      </a>
+
+      <button
+        type="button"
+        onclick="window.location.reload();"
+        class="h-8 px-2 bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 cursor-pointer rounded"
+        title="Refresh Data"
+      >
+        <span class="material-symbols-outlined text-[16px]">refresh</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="px-space-md flex flex-col gap-space-md">
+    <!-- 2. SEVERITY FILTER BADGES (Stitch Source of Truth: AuditLogView.tsx) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant p-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-label-caps text-label-caps uppercase text-outline me-1">Tingkat / Severity:</span>
+
+        <!-- ALL -->
+        <a
+          href="?severity=ALL{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+          class="h-7 px-3 font-code-sm text-code-sm font-semibold border rounded text-decoration-none flex items-center transition-colors {% if severity_filter == 'ALL' %}bg-primary text-on-primary border-primary shadow-sm{% else %}bg-surface-container-lowest text-on-surface border-outline-variant hover:bg-surface-container{% endif %}"
+        >
+          Semua Log
+        </a>
+
+        <!-- INFO -->
+        <a
+          href="?severity=INFO{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+          class="h-7 px-3 font-code-sm text-code-sm font-semibold border rounded text-decoration-none flex items-center transition-colors {% if severity_filter == 'INFO' %}bg-primary text-on-primary border-primary shadow-sm{% else %}bg-surface-container-lowest text-on-surface border-outline-variant hover:bg-surface-container{% endif %}"
+        >
+          INFO
+        </a>
+
+        <!-- SUCCESS -->
+        <a
+          href="?severity=SUCCESS{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+          class="h-7 px-3 font-code-sm text-code-sm font-semibold border rounded text-decoration-none flex items-center transition-colors {% if severity_filter == 'SUCCESS' %}bg-primary-fixed text-on-primary-fixed border-primary font-bold shadow-sm{% else %}bg-surface-container-lowest text-on-surface border-outline-variant hover:bg-surface-container{% endif %}"
+        >
+          SUCCESS
+        </a>
+
+        <!-- WARN -->
+        <a
+          href="?severity=WARN{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+          class="h-7 px-3 font-code-sm text-code-sm font-semibold border rounded text-decoration-none flex items-center transition-colors {% if severity_filter == 'WARN' %}bg-tertiary-container text-on-tertiary-container border-tertiary font-bold shadow-sm{% else %}bg-surface-container-lowest text-on-surface border-outline-variant hover:bg-surface-container{% endif %}"
+        >
+          WARN / HOLD
+        </a>
+
+        <!-- ERROR -->
+        <a
+          href="?severity=ERROR{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+          class="h-7 px-3 font-code-sm text-code-sm font-semibold border rounded text-decoration-none flex items-center transition-colors {% if severity_filter == 'ERROR' %}bg-error-container text-on-error-container border-error font-bold shadow-sm{% else %}bg-surface-container-lowest text-on-surface border-outline-variant hover:bg-surface-container{% endif %}"
+        >
+          ERROR / REJECT
+        </a>
+      </div>
+
+      <div class="font-code-sm text-body-xs text-outline">
+        Menampilkan <span class="font-bold text-on-surface">{{ total_logs }}</span> rekaman audit
+      </div>
+    </div>
+
+    <!-- 3. SEARCH & TOOLSTRIP FILTER BAR -->
+    <div class="bg-surface-container-lowest border border-outline-variant p-3">
+      <form method="GET" action="{% url 'audit_log' %}" class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 m-0">
+        <input type="hidden" name="severity" value="{{ severity_filter }}">
+
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <!-- Quick Search -->
+          <div class="relative flex-1 min-w-[260px] max-w-md">
+            <span class="material-symbols-outlined absolute left-2.5 top-2 text-[16px] text-outline">search</span>
+            <input
+              name="search"
+              value="{{ search_query }}"
+              class="w-full h-8 pl-8 pr-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+              placeholder="Cari ID Log, No. Antrian, No. Polisi, atau Operator..."
+              type="text"
+            />
+          </div>
+
+          <!-- Filter Jalur -->
+          <select
+            name="lane"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            onchange="this.form.submit();"
+          >
+            <option value="">Semua Jalur Gerbang</option>
+            {% for code, label in lanes %}
+              <option value="{{ code }}" {% if lane_filter == code %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+
+          <!-- Filter Tanggal -->
+          <input
+            type="date"
+            name="date"
+            value="{{ date_filter }}"
+            class="h-8 px-2 bg-surface-container-low border border-outline-variant font-code-sm text-code-sm text-on-surface focus:outline-none focus:border-secondary rounded"
+            title="Filter Tanggal Audit"
+            onchange="this.form.submit();"
+          />
+
+          <!-- Action Buttons -->
+          <button
+            type="submit"
+            class="h-8 px-3 bg-secondary text-on-secondary hover:bg-primary font-code-sm text-code-sm font-semibold rounded cursor-pointer border-0 transition-colors"
+          >
+            Filter
+          </button>
+
+          {% if search_query or lane_filter or date_filter or severity_filter != 'ALL' %}
+            <a
+              href="{% url 'audit_log' %}"
+              class="h-8 px-2.5 bg-surface-container text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 rounded text-decoration-none"
+              title="Reset Filter"
+            >
+              <span class="material-symbols-outlined text-[14px]">close</span>
+              <span>Reset</span>
+            </a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+
+    <!-- 4. DENSE OPERATIONAL AUDIT LOG TABLE (Stitch UI: AuditLogView.tsx) -->
+    <div class="bg-surface-container-lowest border border-outline-variant overflow-x-auto shadow-sm">
+      <table class="w-full text-left border-collapse font-body-sm text-body-sm min-w-[1040px]">
+        <thead>
+          <tr class="bg-surface-container font-label-caps text-label-caps text-outline uppercase select-none border-b border-outline-variant">
+            <th class="py-2.5 px-3 w-28">ID Log</th>
+            <th class="py-2.5 px-3 w-36">Stempel Waktu</th>
+            <th class="py-2.5 px-3 w-28">Jalur</th>
+            <th class="py-2.5 px-3 w-48">Tipe Kejadian</th>
+            <th class="py-2.5 px-3 w-36">No. Polisi</th>
+            <th class="py-2.5 px-3 w-44">Petugas / Sistem</th>
+            <th class="py-2.5 px-3">Keterangan &amp; Telemetri</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-outline-variant">
+          {% for log in logs %}
+            <tr class="hover:bg-surface-container transition-colors">
+              <!-- 1. ID Log -->
+              <td class="py-2 px-3 font-code-sm text-outline">
+                {{ log.log_id }}
+              </td>
+
+              <!-- 2. Stempel Waktu -->
+              <td class="py-2 px-3 font-code-sm text-on-surface">
+                <div class="font-semibold">{{ log.timestamp|date:"H:i:s" }} WIB</div>
+                <div class="text-[10px] text-outline font-normal">{{ log.timestamp|date:"d M Y" }}</div>
+              </td>
+
+              <!-- 3. Jalur -->
+              <td class="py-2 px-3 font-code-sm font-bold text-secondary">
+                {{ log.lane }}
+              </td>
+
+              <!-- 4. Tipe Kejadian Badge -->
+              <td class="py-2 px-3">
+                <span class="px-2 py-0.5 font-label-caps text-[10px] font-bold rounded inline-block {% if log.severity == 'SUCCESS' %}bg-primary-fixed text-on-primary-fixed border border-primary/40{% elif log.severity == 'WARN' %}bg-tertiary-container text-on-tertiary-container border border-error/40{% elif log.severity == 'ERROR' %}bg-error-container text-on-error-container border border-error{% else %}bg-surface-container text-on-surface border border-outline-variant{% endif %}">
+                  {{ log.event }}
+                </span>
+              </td>
+
+              <!-- 5. No. Polisi -->
+              <td class="py-2 px-3 font-code-md text-code-md font-bold text-on-surface">
+                <a
+                  href="{% url 'queue_detail' log.queue_entry.pk %}"
+                  class="text-on-surface hover:text-secondary text-decoration-none flex items-center gap-1"
+                  title="Lihat Detail Antrian {{ log.queue_entry.no_antrian }}"
+                >
+                  <span class="px-1.5 py-0.5 bg-primary text-on-primary border border-outline/30 rounded text-[11px]">
+                    {{ log.truck_plate }}
+                  </span>
+                  <span class="text-[10px] text-outline font-normal">({{ log.queue_entry.no_antrian }})</span>
+                </a>
+              </td>
+
+              <!-- 6. Petugas / Sistem -->
+              <td class="py-2 px-3 font-body-sm text-on-surface font-medium">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[15px] text-outline">
+                    {% if 'Sistem' in log.operator_name %}smart_toy{% else %}account_circle{% endif %}
+                  </span>
+                  <span>{{ log.operator_name }}</span>
+                </div>
+              </td>
+
+              <!-- 7. Keterangan & Telemetri -->
+              <td class="py-2 px-3 text-on-surface-variant font-body-xs">
+                <div class="flex items-center gap-2 flex-wrap">
+                  {% if log.status_lama or log.status_baru %}
+                    <span class="font-code-sm text-[10px] px-1 py-0.2 bg-surface-container border border-outline-variant rounded text-on-surface">
+                      {{ log.status_lama|default:"GATE_IN" }} &rarr; {{ log.status_baru }}
+                    </span>
+                  {% endif %}
+                  <span class="text-on-surface">{{ log.keterangan|default:"Aktivitas gerbang tercatat." }}</span>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center py-8 text-on-surface-variant font-body-sm">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="material-symbols-outlined text-outline text-[32px]">receipt_long</span>
+                  <span>Tidak ada rekaman audit log yang sesuai dengan kriteria filter.</span>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 5. PAGINATION CONTROLS -->
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="flex items-center justify-between bg-surface-container-lowest border border-outline-variant px-space-md py-2 text-body-sm">
+        <div class="font-code-sm text-outline text-body-xs">
+          Menampilkan halaman {{ page_obj.number }} dari {{ page_obj.paginator.num_pages }} (Total {{ total_logs }} log)
+        </div>
+
+        <div class="flex items-center gap-1">
+          {% if page_obj.has_previous %}
+            <a
+              href="?page=1{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+              class="h-7 px-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+              title="Halaman Pertama"
+            >
+              &laquo;
+            </a>
+            <a
+              href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+              class="h-7 px-2.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+            >
+              Sebelumnya
+            </a>
+          {% endif %}
+
+          <span class="h-7 px-3 bg-secondary text-on-secondary font-code-sm text-code-sm font-bold rounded flex items-center">
+            {{ page_obj.number }}
+          </span>
+
+          {% if page_obj.has_next %}
+            <a
+              href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+              class="h-7 px-2.5 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+            >
+              Selanjutnya
+            </a>
+            <a
+              href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter }}{% endif %}{% if date_filter %}&date={{ date_filter }}{% endif %}"
+              class="h-7 px-2 bg-surface-container hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm rounded text-on-surface text-decoration-none flex items-center"
+              title="Halaman Terakhir"
+            >
+              &raquo;
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

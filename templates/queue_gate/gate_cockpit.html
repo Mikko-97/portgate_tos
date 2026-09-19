@@ -1,0 +1,850 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gate Cockpit &amp; Matrix Jalur — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. Operational Gate KPI Bar (Dense Industrial 1-row HUD) -->
+  <div class="w-full bg-primary text-on-primary px-space-md py-1.5 flex flex-wrap items-center justify-between gap-y-1">
+    <div class="flex items-center gap-space-lg flex-wrap">
+      <!-- KPI 1: Antrian Gate -->
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-label-caps text-label-caps text-on-primary-container uppercase">Antrian Gate:</span>
+        <span class="font-code-lg text-code-lg font-bold text-on-primary">{{ kpi.antrian_gate }}</span>
+        <span class="font-code-sm text-code-sm text-surface-variant">Truk (Menunggu Buffer)</span>
+      </div>
+      <div class="h-3 w-px bg-primary-container hidden sm:block"></div>
+
+      <!-- KPI 2: Proses Booth -->
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-label-caps text-label-caps text-on-primary-container uppercase">Proses Booth:</span>
+        <span class="font-code-lg text-code-lg font-bold text-secondary-fixed">{{ kpi.proses_booth }}</span>
+        <span class="font-code-sm text-code-sm text-surface-variant">Truk (Gate 01-06)</span>
+      </div>
+      <div class="h-3 w-px bg-primary-container hidden md:block"></div>
+
+      <!-- KPI 3: Avg TTT -->
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-label-caps text-label-caps text-on-primary-container uppercase">Avg TTT:</span>
+        <span class="font-code-lg text-code-lg font-bold text-on-primary">{{ kpi.avg_ttt }}m</span>
+        <span class="font-code-sm text-code-sm text-surface-variant">(Target &lt; 3.5m)</span>
+      </div>
+      <div class="h-3 w-px bg-primary-container hidden lg:block"></div>
+
+      <!-- KPI 4: Throughput Shift -->
+      <div class="flex items-baseline gap-1.5">
+        <span class="font-label-caps text-label-caps text-on-primary-container uppercase">Throughput Shift:</span>
+        <span class="font-code-lg text-code-lg font-bold text-secondary-fixed">{{ kpi.throughput_teus }}</span>
+        <span class="font-code-sm text-code-sm text-surface-variant">TEUs Selesai</span>
+      </div>
+    </div>
+
+    <!-- KPI 5: Alert / Hold Badge -->
+    <div class="flex items-center gap-1.5 bg-tertiary-container px-2 py-0.5 rounded">
+      <span class="material-symbols-outlined text-[14px] text-on-tertiary-container">warning</span>
+      <span class="font-label-caps text-label-caps text-on-tertiary-container uppercase">Status Kendala / Hold:</span>
+      <span class="font-code-md text-code-md font-bold text-on-tertiary-container">{{ kpi.total_hold }} Truk</span>
+      <span class="font-body-xs text-body-xs text-surface-variant hidden xl:inline">(Trouble / Verifikasi)</span>
+    </div>
+  </div>
+
+  <!-- 2. Lane Status Matrix (8 Gate Lanes Strip: 6 Inbound, 2 Outbound) -->
+  <div class="w-full bg-surface-container-high px-space-md py-2 overflow-x-auto">
+    <div class="flex items-stretch gap-2 min-w-[1240px]">
+      {% for lane in gate_lanes %}
+        <div
+          class="flex-1 {% if lane.status == 'STANDBY' %}bg-surface-container-low opacity-80{% else %}bg-surface-container-lowest shadow-sm{% endif %} p-1.5 flex flex-col justify-between relative cursor-pointer hover:border-secondary transition-all border border-outline-variant"
+          onclick="filterByLane('{{ lane.db_name|escapejs }}');"
+          title="Klik untuk memfilter tabel ke jalur ini"
+        >
+          {% if lane.is_active_focus %}
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-secondary rounded-l"></div>
+          {% endif %}
+
+          <div class="flex items-center justify-between pb-1 {% if lane.is_active_focus %}pl-1{% endif %}">
+            <span class="font-code-sm text-code-sm font-bold {% if lane.is_active_focus %}text-secondary{% elif lane.is_hold %}text-on-tertiary-container{% elif lane.status == 'STANDBY' %}text-on-surface-variant{% else %}text-primary{% endif %}">
+              {{ lane.name }} <span class="font-body-xs text-body-xs text-on-surface-variant font-normal">{{ lane.type }}</span>
+            </span>
+            <span
+              class="px-1 py-0.2 font-label-caps text-[9px] rounded {% if lane.status == 'PROSES' or lane.status == 'TIMBANG' %}bg-secondary text-on-secondary{% elif lane.status == 'VALID' %}bg-surface-container-high text-primary font-bold{% elif lane.status == 'HOLD' %}bg-tertiary-container text-on-tertiary-container font-bold{% elif lane.status == 'DISPATCH' %}bg-surface-container text-on-surface{% else %}bg-surface-variant text-on-surface-variant{% endif %}"
+            >
+              {{ lane.status }}
+            </span>
+          </div>
+
+          <div class="my-1 {% if lane.is_active_focus %}pl-1{% endif %}">
+            {% if lane.truck_plate %}
+              <div class="font-code-md text-code-md font-bold text-on-surface">{{ lane.truck_plate }}</div>
+              <div class="font-code-sm text-code-sm text-on-surface-variant">
+                {{ lane.container_no }} <span class="text-primary font-semibold">{{ lane.container_type }}</span>
+              </div>
+            {% else %}
+              <div class="flex items-center justify-center py-1">
+                <span class="font-code-sm text-code-sm text-on-surface-variant font-semibold">
+                  {{ lane.sub_status }}
+                </span>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="flex items-center justify-between pt-1 font-code-sm text-[10px] text-on-surface-variant {% if lane.is_active_focus %}pl-1{% endif %} border-t border-outline-variant/30">
+            <span>{{ lane.wim_weight }}</span>
+            <span class="{% if lane.is_active_focus %}text-secondary font-bold{% elif lane.is_hold %}text-error font-bold{% endif %}">
+              {{ lane.ocr_score }}
+            </span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 3. Operational Filter & Fast Search Toolstrip -->
+  <div class="w-full bg-surface-container-low px-space-md py-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant">
+    <!-- Left Filters Group -->
+    <form method="GET" action="{% url 'gate_cockpit' %}" id="cockpitFilterForm" class="flex items-center gap-1.5 flex-wrap m-0">
+      <!-- Search Input -->
+      <div class="relative flex items-center">
+        <span class="material-symbols-outlined absolute left-2 text-on-surface-variant text-[16px]">search</span>
+        <input
+          name="search"
+          value="{{ search_query }}"
+          class="h-8 pl-7 pr-2 w-64 bg-surface-container-lowest font-code-sm text-code-sm text-on-surface focus:outline-none rounded-none border border-outline-variant"
+          placeholder="Nopol / No. Kontainer / Sopir..."
+          type="text"
+        />
+      </div>
+
+      <!-- Filter: Status Antrian -->
+      <select
+        name="status"
+        onchange="this.form.submit();"
+        class="h-8 px-2 bg-surface-container-lowest font-body-sm text-body-sm text-on-surface focus:outline-none rounded-none border border-outline-variant cursor-pointer"
+      >
+        <option value="">Status: Semua</option>
+        <option value="MENUNGGU" {% if status_filter == 'MENUNGGU' %}selected{% endif %}>Menunggu Buffer</option>
+        <option value="PROSES" {% if status_filter == 'PROSES' %}selected{% endif %}>Sedang Proses</option>
+        <option value="TERTAHAN" {% if status_filter == 'TERTAHAN' %}selected{% endif %}>Tertahan / Hold</option>
+        <option value="SELESAI" {% if status_filter == 'SELESAI' %}selected{% endif %}>Selesai Yard</option>
+        <option value="KELUAR" {% if status_filter == 'KELUAR' %}selected{% endif %}>Gate Out</option>
+      </select>
+
+      <!-- Filter: Tipe Muatan -->
+      <select
+        name="cargo"
+        onchange="this.form.submit();"
+        class="h-8 px-2 bg-surface-container-lowest font-body-sm text-body-sm text-on-surface focus:outline-none rounded-none border border-outline-variant cursor-pointer"
+      >
+        <option value="">Tipe: Semua Muatan</option>
+        <option value="IMPORT" {% if cargo_filter == 'IMPORT' %}selected{% endif %}>IMPORT FULL</option>
+        <option value="EXPORT" {% if cargo_filter == 'EXPORT' %}selected{% endif %}>EXPORT FULL</option>
+        <option value="EMPTY_RETURN" {% if cargo_filter == 'EMPTY_RETURN' %}selected{% endif %}>EMPTY RETURN</option>
+      </select>
+
+      <!-- Filter: Gate Lane -->
+      <select
+        name="lane"
+        id="laneFilterSelect"
+        onchange="this.form.submit();"
+        class="h-8 px-2 bg-surface-container-lowest font-body-sm text-body-sm text-on-surface focus:outline-none rounded-none border border-outline-variant cursor-pointer"
+      >
+        <option value="">Gerbang: Semua Jalur</option>
+        <option value="Lane 01 - Dry In" {% if lane_filter == 'Lane 01 - Dry In' %}selected{% endif %}>Lane 01 - Dry In</option>
+        <option value="Lane 02 - Reefer" {% if lane_filter == 'Lane 02 - Reefer' %}selected{% endif %}>Lane 02 - Reefer</option>
+        <option value="Lane 03 - Auto OCR" {% if lane_filter == 'Lane 03 - Auto OCR' %}selected{% endif %}>Lane 03 - Auto OCR</option>
+        <option value="Lane 04 - Trouble" {% if lane_filter == 'Lane 04 - Trouble' %}selected{% endif %}>Lane 04 - Trouble</option>
+        <option value="Lane 05 - Empty" {% if lane_filter == 'Lane 05 - Empty' %}selected{% endif %}>Lane 05 - Empty</option>
+        <option value="Lane 06 - Dedicated" {% if lane_filter == 'Lane 06 - Dedicated' %}selected{% endif %}>Lane 06 - Dedicated</option>
+      </select>
+
+      <a
+        href="{% url 'gate_cockpit' %}"
+        class="h-8 px-2 bg-surface-container-high text-on-surface-variant hover:text-on-surface font-body-xs text-body-xs flex items-center gap-1 border border-outline-variant text-decoration-none cursor-pointer"
+        title="Reset Parameter"
+      >
+        <span class="material-symbols-outlined text-[14px]">filter_alt_off</span>
+        <span>Reset</span>
+      </a>
+    </form>
+
+    <!-- Right Fast Keyboard Action Group -->
+    <div class="flex items-center gap-1.5 flex-wrap">
+      {% if active_truck and active_truck.status == 'MENUNGGU' %}
+        <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}" class="m-0 d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="target_status" value="PROSES">
+          <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+          <button
+            type="submit"
+            id="btnFastCall"
+            class="h-8 px-2.5 bg-primary text-on-primary hover:bg-primary-container font-code-sm text-code-sm flex items-center gap-1 font-semibold cursor-pointer border-0"
+          >
+            <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+            <span>Panggil Berikutnya [Spasi]</span>
+          </button>
+        </form>
+      {% else %}
+        <button
+          type="button"
+          onclick="triggerIntercomNotice();"
+          class="h-8 px-2.5 bg-primary text-on-primary hover:bg-primary-container font-code-sm text-code-sm flex items-center gap-1 font-semibold cursor-pointer border-0"
+        >
+          <span class="material-symbols-outlined text-[16px]">campaign</span>
+          <span>Interkom Booth [Spasi]</span>
+        </button>
+      {% endif %}
+
+      {% if active_truck and active_truck.status == 'PROSES' %}
+        <button
+          type="button"
+          onclick="openCockpitHoldModal();"
+          class="h-8 px-2 bg-tertiary-container text-on-tertiary-container hover:bg-tertiary font-code-sm text-code-sm flex items-center gap-1 font-semibold cursor-pointer border-0"
+        >
+          <span class="material-symbols-outlined text-[16px]">front_hand</span>
+          <span>Tahan Truk [F4]</span>
+        </button>
+      {% endif %}
+
+      <button
+        type="button"
+        onclick="releaseBarrierManual();"
+        class="h-8 px-2 bg-surface-container text-on-surface hover:bg-surface-container-high font-code-sm text-code-sm flex items-center gap-1 border border-outline-variant cursor-pointer"
+      >
+        <span class="material-symbols-outlined text-[16px]">toll</span>
+        <span>Lepas Palang [F7]</span>
+      </button>
+
+      <button
+        type="button"
+        onclick="exportTableToCSV('gate-cockpit-queue.csv');"
+        class="h-8 px-2 bg-surface-container text-on-surface hover:bg-surface-container-high font-code-sm text-code-sm flex items-center gap-1 border border-outline-variant cursor-pointer"
+        title="Unduh CSV Ringkasan"
+      >
+        <span class="material-symbols-outlined text-[16px]">file_download</span>
+        <span>CSV</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. Main High-Density Operational Queue Table -->
+  <div class="w-full bg-surface-container-lowest overflow-x-auto">
+    <table id="cockpitQueueTable" class="w-full text-left border-collapse select-text min-w-[1360px]">
+      <thead>
+        <tr class="bg-surface-container text-on-surface font-label-caps text-label-caps uppercase select-none border-b border-outline-variant">
+          <th class="py-2 px-2.5 w-16 text-center">No. Antri</th>
+          <th class="py-2 px-2 w-20">Masuk</th>
+          <th class="py-2 px-2 w-20">Tunggu</th>
+          <th class="py-2 px-2.5 w-28">No. Polisi</th>
+          <th class="py-2 px-2.5 w-44">Kontainer / Ukuran</th>
+          <th class="py-2 px-2 w-28">Status Muatan</th>
+          <th class="py-2 px-2.5 w-32">Ref Dokumen</th>
+          <th class="py-2 px-2.5 w-36">Pengemudi</th>
+          <th class="py-2 px-2.5 w-48">Perusahaan Ekspedisi</th>
+          <th class="py-2 px-2.5 w-44">Tujuan / Yard Block</th>
+          <th class="py-2 px-2.5 w-32 text-center">Status</th>
+          <th class="py-2 px-2.5 w-44 text-center">Aksi Cepat</th>
+        </tr>
+      </thead>
+      <tbody class="font-body-sm text-body-sm divide-y divide-surface-container">
+        {% for r in rows %}
+          <tr
+            class="{% if r.is_selected %}bg-secondary-fixed/30 hover:bg-secondary-fixed/50{% elif r.is_alert %}bg-tertiary-container/10 hover:bg-tertiary-container/20{% else %}bg-surface-container-lowest hover:bg-surface-container-high{% endif %} cursor-pointer h-9 transition-colors"
+            onclick="window.location.href='?selected={{ r.pk }}{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if cargo_filter %}&cargo={{ cargo_filter }}{% endif %}{% if lane_filter %}&lane={{ lane_filter|urlencode }}{% endif %}';"
+          >
+            <!-- 1. No Antrian -->
+            <td class="py-1 px-2.5 font-code-sm text-code-sm font-bold text-center {% if r.is_selected %}text-secondary{% elif r.is_alert %}text-on-tertiary-container{% else %}text-on-surface-variant{% endif %}">
+              <span class="flex items-center justify-center gap-1">
+                {% if r.is_selected %}<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>{% endif %}
+                {% if r.is_alert %}<span class="w-1.5 h-1.5 rounded-full bg-on-tertiary-container"></span>{% endif %}
+                {{ r.no_antrian }}
+              </span>
+            </td>
+
+            <!-- 2. Waktu Masuk -->
+            <td class="py-1 px-2 font-code-sm text-code-sm text-on-surface">{{ r.waktu_masuk|date:"H:i:s" }}</td>
+
+            <!-- 3. Dwell Time -->
+            <td class="py-1 px-2 font-code-sm text-code-sm font-bold {% if r.is_selected %}text-secondary{% elif r.is_alert %}text-on-tertiary-container{% else %}text-on-surface{% endif %}">
+              {{ r.dwell_time }}
+            </td>
+
+              <!-- 4. No Polisi -->
+              <td class="py-1 px-2.5 font-code-sm text-code-sm font-bold text-on-surface tracking-wide">
+                {{ r.truck.no_polisi }}
+              </td>
+
+              <!-- 5. Kontainer / Ukuran -->
+              <td class="py-1 px-2.5 font-code-sm text-code-sm">
+                {% if r.container %}
+                  <div class="flex items-center gap-1">
+                    <span class="bg-primary text-on-primary px-1 rounded font-bold">{{ r.container.no_kontainer }}</span>
+                    <span class="bg-surface-container text-on-surface-variant px-1 rounded text-[10px]">{{ r.container.ukuran }}' {{ r.container.tipe }}</span>
+                  </div>
+                {% else %}
+                  <span class="text-outline fst-italic text-[11px]">Chassis Kosong</span>
+                {% endif %}
+              </td>
+
+              <!-- 6. Status Muatan -->
+              <td class="py-1 px-2">
+                {% if r.container %}
+                  <span
+                    class="px-1.5 py-0.5 font-label-caps text-[9px] rounded uppercase font-bold {% if r.container.kategori == 'IMPORT' %}bg-primary-container text-on-primary{% elif r.container.kategori == 'EXPORT' %}bg-surface-variant text-secondary{% else %}bg-surface-container-high text-on-surface-variant{% endif %}"
+                  >
+                    {{ r.container.get_kategori_display }}
+                  </span>
+                {% else %}
+                  <span class="text-outline text-[11px]">-</span>
+                {% endif %}
+              </td>
+
+              <!-- 7. Ref Dokumen -->
+              <td class="py-1 px-2.5 font-code-sm text-code-sm truncate max-w-[120px]" title="{{ r.container.ref_dokumen|default:'-' }}">
+                {{ r.container.ref_dokumen|default:"-" }}
+              </td>
+
+              <!-- 8. Pengemudi -->
+              <td class="py-1 px-2.5 truncate font-body-sm text-on-surface font-medium max-w-[140px]" title="{{ r.driver.nama }}">
+                {{ r.driver.nama }}
+              </td>
+
+              <!-- 9. Ekspedisi -->
+              <td class="py-1 px-2.5 truncate text-on-surface-variant max-w-[180px]" title="{{ r.truck.expedisi.nama_perusahaan }}">
+                {{ r.truck.expedisi.nama_perusahaan|default:"-" }}
+              </td>
+
+              <!-- 10. Alokasi Yard -->
+              <td class="py-1 px-2.5 font-code-sm text-code-sm {% if r.is_alert %}text-error font-semibold{% else %}text-on-surface{% endif %}">
+                {{ r.alokasi_blok|default:"Buffer Gate" }}
+              </td>
+
+              <!-- 11. Status Antrian Badge -->
+              <td class="py-1 px-2.5 text-center">
+                <span
+                  class="px-1.5 py-0.5 font-label-caps text-[10px] rounded font-bold inline-block {% if r.status == 'PROSES' %}bg-secondary-fixed text-on-secondary-fixed{% elif r.status == 'TERTAHAN' %}bg-tertiary-container text-on-tertiary-container{% elif r.status == 'SELESAI' %}bg-surface-container-high text-primary{% else %}bg-surface-container text-on-surface{% endif %}"
+                >
+                  {{ r.get_status_display }}
+                </span>
+              </td>
+
+              <!-- 12. Aksi Cepat -->
+              <td class="py-1 px-2.5 text-center" onclick="event.stopPropagation();">
+                <div class="flex items-center justify-center gap-1">
+                  <!-- Periksa detail -->
+                  <a
+                    href="{% url 'queue_detail' r.pk %}"
+                    class="px-1.5 py-0.5 bg-primary text-on-primary hover:bg-primary-container font-label-caps text-[9px] rounded font-semibold uppercase text-decoration-none cursor-pointer"
+                  >
+                    Periksa
+                  </a>
+
+                  <!-- ACC / Transisi cepat -->
+                  {% if r.status == 'MENUNGGU' %}
+                    <form method="POST" action="{% url 'queue_process_action' r.pk %}" class="m-0 d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="target_status" value="PROSES">
+                      <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ r.pk }}">
+                      <button
+                        type="submit"
+                        class="px-1.5 py-0.5 bg-secondary text-on-secondary hover:bg-primary font-label-caps text-[9px] rounded font-semibold uppercase cursor-pointer border-0"
+                        title="Panggil Truk"
+                      >
+                        Panggil
+                      </button>
+                    </form>
+                  {% elif r.status == 'PROSES' %}
+                    <form method="POST" action="{% url 'queue_process_action' r.pk %}" class="m-0 d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="target_status" value="SELESAI">
+                      <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ r.pk }}">
+                      <button
+                        type="submit"
+                        class="px-1.5 py-0.5 bg-surface-container text-on-surface hover:bg-surface-container-high font-label-caps text-[9px] rounded font-semibold uppercase border border-outline-variant cursor-pointer"
+                        title="Setujui Gate In"
+                      >
+                        ACC EIR
+                      </button>
+                    </form>
+                  {% elif r.status == 'TERTAHAN' %}
+                    <form method="POST" action="{% url 'queue_process_action' r.pk %}" class="m-0 d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="target_status" value="PROSES">
+                      <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ r.pk }}">
+                      <button
+                        type="submit"
+                        class="px-1.5 py-0.5 bg-secondary text-on-secondary hover:bg-primary font-label-caps text-[9px] rounded font-semibold uppercase cursor-pointer border-0"
+                        title="Lanjutkan Proses"
+                      >
+                        Lanjut
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  <!-- Buka Gate / Tiket -->
+                  <a
+                    href="{% url 'gate_ticket' r.pk %}"
+                    target="_blank"
+                    class="px-1 py-0.5 bg-surface-container text-secondary hover:bg-surface-container-high font-label-caps text-[9px] rounded font-bold uppercase border border-outline-variant cursor-pointer text-decoration-none"
+                    title="Buka / Cetak Tiket EIR"
+                  >
+                    ▲
+                  </a>
+                </div>
+              </td>
+            </tr>
+        {% empty %}
+          <tr>
+            <td colspan="12" class="text-center py-6 text-on-surface-variant font-body-sm">
+              Tidak ada data antrian yang sesuai dengan filter pencarian.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 5. Bottom Docked Inspection & Verification Cockpit -->
+  <div class="w-full bg-surface-container-low p-space-md shadow-sm border-t border-outline-variant">
+    {% if active_truck %}
+      <div class="flex flex-col lg:flex-row items-stretch gap-space-md">
+        <!-- Panel Left: Active Truck Identity & Camera OCR Thumbnails -->
+        <div class="w-full lg:w-1/3 bg-surface-container-lowest p-space-sm flex flex-col justify-between border border-outline-variant">
+          <div>
+            <div class="flex items-center justify-between pb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-secondary">videocam</span>
+                <span class="font-label-caps text-label-caps text-on-surface uppercase">FEED OCR GERBANG (REAL-TIME)</span>
+              </div>
+              <span class="px-1.5 py-0.2 bg-secondary text-on-secondary font-code-sm text-[10px] font-bold">
+                OCR: 99.4% MATCH
+              </span>
+            </div>
+
+            <!-- OCR Live Camera Feeds (Industrial Camera Frame) -->
+            <div class="grid grid-cols-2 gap-1.5 my-1.5">
+              <div class="relative bg-primary overflow-hidden h-24 flex items-center justify-center border border-outline/30" style="background: linear-gradient(135deg, #041534 0%, #1b2a4a 100%);">
+                <div class="flex flex-col items-center justify-center text-center px-1">
+                  <span class="material-symbols-outlined text-secondary-fixed text-[20px] leading-none">front_loader</span>
+                  <span class="font-code-md text-code-md font-bold text-white mt-1 truncate max-w-full" title="{{ active_truck.no_polisi }}">{{ active_truck.no_polisi }}</span>
+                </div>
+                <div class="absolute top-1 left-1 bg-primary/90 text-on-primary px-1 font-code-sm text-[9px] z-10 truncate max-w-[75%]">
+                  CAM-01: CABIN/NOPOL
+                </div>
+                <div class="absolute bottom-1 right-1 bg-secondary text-on-secondary px-1 font-code-sm text-[9px] font-bold z-10 truncate max-w-[75%]">
+                  {{ active_truck.no_polisi }}
+                </div>
+              </div>
+
+              <div class="relative bg-primary overflow-hidden h-24 flex items-center justify-center border border-outline/30" style="background: linear-gradient(135deg, #0a1a3a 0%, #283044 100%);">
+                <div class="flex flex-col items-center justify-center text-center px-1">
+                  <span class="material-symbols-outlined text-secondary-fixed text-[20px] leading-none">inventory_2</span>
+                  <span class="font-code-sm text-code-sm font-bold text-white mt-1 truncate max-w-full" title="{{ active_truck.container_no }}">{{ active_truck.container_no }}</span>
+                </div>
+                <div class="absolute top-1 left-1 bg-primary/90 text-on-primary px-1 font-code-sm text-[9px] z-10 truncate max-w-[75%]">
+                  CAM-02: ISO CODE
+                </div>
+                <div class="absolute bottom-1 right-1 bg-primary-container text-on-primary px-1 font-code-sm text-[9px] font-bold z-10 truncate max-w-[75%]">
+                  {{ active_truck.container_size }}' {{ active_truck.container_type }}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between font-code-sm text-code-sm pt-1">
+              <span class="text-on-surface-variant">Sopir Terdaftar:</span>
+              <span class="font-bold text-on-surface">{{ active_truck.driver_nama }} (SIM: {{ active_truck.driver_sim|default:"-" }})</span>
+            </div>
+          </div>
+
+          <div class="font-body-xs text-body-xs text-on-surface-variant flex items-center justify-between pt-1 border-t border-outline-variant/40 mt-1">
+            <span>RFID: <strong class="font-code-sm text-on-surface">{{ active_truck.rfid_tag }}</strong></span>
+            <span>Chassis: <strong class="font-code-sm text-on-surface">{{ active_truck.konfigurasi }}</strong></span>
+          </div>
+        </div>
+
+        <!-- Panel Center: Weigh-in-Motion Scale & Customs Document Status -->
+        <div class="w-full lg:w-1/3 bg-surface-container-lowest p-space-sm flex flex-col justify-between border border-outline-variant">
+          <div>
+            <div class="flex items-center justify-between pb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-secondary">scale</span>
+                <span class="font-label-caps text-label-caps text-on-surface uppercase">
+                  VALIDASI TIMBANGAN &amp; DOKUMEN BEA CUKAI
+                </span>
+              </div>
+              <span class="px-1.5 py-0.2 bg-surface-container-high text-primary font-code-sm text-[10px] font-bold">
+                SCALE PASSED
+              </span>
+            </div>
+
+            <!-- Weight Metric Bar -->
+            <div class="bg-surface-container-low p-2 my-1.5 border border-outline-variant/50">
+              <div class="flex items-baseline justify-between">
+                <span class="font-label-caps text-label-caps text-on-surface-variant uppercase">
+                  Berat Kotor (WIM Scale):
+                </span>
+                <div class="flex items-baseline gap-1">
+                  <span class="font-code-lg text-code-lg font-bold text-primary">{{ active_truck.gross_weight }}</span>
+                  <span class="font-code-sm text-code-sm text-on-surface-variant">KG</span>
+                </div>
+              </div>
+
+              <!-- Visual Scale Fill Meter -->
+              <div class="w-full h-2 bg-surface-container mt-1 rounded overflow-hidden flex">
+                <div class="h-full bg-secondary transition-all duration-300" style="width: {{ active_truck.weight_pct }};"></div>
+              </div>
+
+              <div class="flex items-center justify-between font-code-sm text-[10px] text-on-surface-variant mt-1">
+                <span>Tare: {{ active_truck.tare_weight }} KG</span>
+                <span>Netto: {{ active_truck.net_weight }} KG</span>
+                <span class="text-on-surface font-semibold">Max Legal: 38,000 KG</span>
+              </div>
+            </div>
+
+            <!-- Document Validation Status Row -->
+            <div class="grid grid-cols-3 gap-1 pt-1 font-code-sm text-[11px]">
+              <div class="bg-surface-container p-1 rounded text-center">
+                <div class="text-[9px] text-on-surface-variant font-label-caps uppercase">Bea Cukai / SPPB</div>
+                <div class="font-bold text-primary">VALID 100%</div>
+              </div>
+              <div class="bg-surface-container p-1 rounded text-center">
+                <div class="text-[9px] text-on-surface-variant font-label-caps uppercase">PIN Gate Online</div>
+                <div class="font-bold text-primary">MATCHED</div>
+              </div>
+              <div class="bg-surface-container p-1 rounded text-center">
+                <div class="text-[9px] text-on-surface-variant font-label-caps uppercase">Segel Pelayaran</div>
+                <div class="font-bold text-primary">{{ active_truck.seal_number|default:"INTACT" }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between font-body-xs text-body-xs text-on-surface-variant pt-1 border-t border-outline-variant/40 mt-1">
+            <span>Billing: <strong class="text-primary">LUNAS / PRE-PAID</strong></span>
+            <span>Dokumen: <strong class="font-code-sm text-on-surface">{{ active_truck.ref_dokumen|default:"-" }}</strong></span>
+          </div>
+        </div>
+
+        <!-- Panel Right: Dispatch Routing & Physical Barrier Control -->
+        <div class="w-full lg:w-1/3 bg-surface-container-lowest p-space-sm flex flex-col justify-between border border-outline-variant">
+          <div>
+            <div class="flex items-center justify-between pb-1">
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-outlined text-[16px] text-secondary">alt_route</span>
+                <span class="font-label-caps text-label-caps text-on-surface uppercase">
+                  INSTRUKSI YARD &amp; DISPOSISI OPERATOR
+                </span>
+              </div>
+              <span class="font-code-sm text-code-sm font-bold text-secondary">{{ active_truck.booth|upper }}</span>
+            </div>
+
+            <!-- Assigned Yard Slot Box -->
+            <div class="bg-surface-container p-2 my-1.5 flex items-center justify-between border border-outline-variant/50">
+              <div>
+                <div class="font-label-caps text-label-caps text-on-surface-variant uppercase">
+                  Alokasi Blok Lapangan:
+                </div>
+                <div class="font-code-lg text-code-lg font-bold text-primary mt-0.5">
+                  {{ active_truck.alokasi_blok }}
+                </div>
+                <div class="font-body-xs text-body-xs text-on-surface-variant">
+                  BAY {{ active_truck.alokasi_bay }} &bull; ROW {{ active_truck.alokasi_row }} &bull; TIER {{ active_truck.alokasi_tier }}
+                </div>
+              </div>
+              <a
+                href="{% url 'queue_detail' active_truck.entry.pk %}"
+                class="px-2 py-1 bg-surface-container-lowest hover:bg-surface-container-high text-on-surface font-label-caps text-label-caps rounded uppercase font-semibold border border-outline-variant text-decoration-none cursor-pointer"
+              >
+                Detail
+              </a>
+            </div>
+          </div>
+
+          <!-- Barrier & EIR Execute Action Buttons -->
+          <div class="flex flex-col gap-1.5 pt-1">
+            <div class="flex items-center gap-1.5">
+              {% if active_truck.status == 'MENUNGGU' %}
+                <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}" class="w-full m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="target_status" value="PROSES">
+                  <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+                  <button
+                    type="submit"
+                    id="btnCockpitPrimary"
+                    class="w-full h-9 bg-primary text-on-primary hover:bg-primary-container font-code-sm text-code-sm font-bold flex items-center justify-center gap-1.5 uppercase transition-colors cursor-pointer border-0"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    <span>PANGGIL ARMADA KE BOOTH [ENTER]</span>
+                  </button>
+                </form>
+
+              {% elif active_truck.status == 'PROSES' %}
+                <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}" class="w-full m-0" onsubmit="handleBarrierOpenedAnimation();">
+                  {% csrf_token %}
+                  <input type="hidden" name="target_status" value="SELESAI">
+                  <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+                  <button
+                    type="submit"
+                    id="btnCockpitPrimary"
+                    class="w-full h-9 bg-secondary text-on-secondary hover:bg-primary font-code-sm text-code-sm font-bold flex items-center justify-center gap-1.5 uppercase transition-colors cursor-pointer border-0"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">verified</span>
+                    <span>ACC CETAK EIR &amp; BUKA BARRIER [ENTER]</span>
+                  </button>
+                </form>
+
+              {% elif active_truck.status == 'TERTAHAN' %}
+                <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}" class="w-full m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="target_status" value="PROSES">
+                  <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+                  <button
+                    type="submit"
+                    id="btnCockpitPrimary"
+                    class="w-full h-9 bg-secondary text-on-secondary hover:bg-primary font-code-sm text-code-sm font-bold flex items-center justify-center gap-1.5 uppercase transition-colors cursor-pointer border-0"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                    <span>LANJUTKAN PROSES SETELAH HOLD [ENTER]</span>
+                  </button>
+                </form>
+
+              {% elif active_truck.status == 'SELESAI' %}
+                <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}" class="w-full m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="target_status" value="KELUAR">
+                  <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+                  <button
+                    type="submit"
+                    id="btnCockpitPrimary"
+                    class="w-full h-9 bg-primary text-on-primary hover:bg-primary-container font-code-sm text-code-sm font-bold flex items-center justify-center gap-1.5 uppercase transition-colors cursor-pointer border-0"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">door_open</span>
+                    <span>TANDAI GATE OUT / KELUAR [ENTER]</span>
+                  </button>
+                </form>
+
+              {% else %}
+                <div class="w-full h-9 bg-surface-container text-outline font-code-sm text-code-sm font-bold flex items-center justify-center gap-1.5 border border-outline-variant">
+                  <span class="material-symbols-outlined text-[16px]">check</span>
+                  <span>ARMADA TELAH KELUAR TERMINAL</span>
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <a
+                href="{% url 'gate_ticket' active_truck.entry.pk %}?print=1"
+                target="_blank"
+                class="flex-1 h-7 bg-surface-container text-on-surface hover:bg-surface-container-high font-label-caps text-label-caps uppercase font-semibold flex items-center justify-center gap-1 border border-outline-variant text-decoration-none cursor-pointer"
+              >
+                <span class="material-symbols-outlined text-[14px]">print</span>
+                <span>Cetak Tiket [Ctrl+P]</span>
+              </a>
+
+              {% if active_truck.status == 'PROSES' %}
+                <button
+                  type="button"
+                  onclick="openCockpitHoldModal();"
+                  class="flex-1 h-7 bg-tertiary-container text-on-tertiary-container hover:bg-tertiary font-label-caps text-label-caps uppercase font-semibold flex items-center justify-center gap-1 cursor-pointer border-0"
+                >
+                  <span class="material-symbols-outlined text-[14px]">turn_sharp_right</span>
+                  <span>Alihkan ke Trouble [F4]</span>
+                </button>
+              {% else %}
+                <a
+                  href="{% url 'queue_detail' active_truck.entry.pk %}"
+                  class="flex-1 h-7 bg-surface-container text-on-surface hover:bg-surface-container-high font-label-caps text-label-caps uppercase font-semibold flex items-center justify-center gap-1 border border-outline-variant text-decoration-none cursor-pointer"
+                >
+                  <span class="material-symbols-outlined text-[14px]">visibility</span>
+                  <span>Lihat Detail Lengkap</span>
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="py-6 text-center text-on-surface-variant font-body-sm">
+        Pilih salah satu baris antrian pada tabel di atas untuk menampilkan data inspeksi gardu.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal Hold Operasional Gate Cockpit -->
+{% if active_truck %}
+<div id="cockpitHoldModal" class="tos-modal-backdrop hidden" style="position: fixed; inset: 0; background: rgba(4, 21, 52, 0.6); z-index: 1050; display: none; align-items: center; justify-content: center;">
+  <div class="bg-surface-container-lowest border border-outline-variant p-space-md shadow-lg max-w-md w-full mx-4" style="border-radius: 2px;">
+    <div class="flex items-center justify-between border-b border-outline-variant pb-2 mb-space-sm">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-error text-[20px]">warning</span>
+        <span class="font-headline-sm text-headline-sm text-on-surface font-bold">
+          Tahan Armada / Alihkan ke Jalur Trouble
+        </span>
+      </div>
+      <button type="button" onclick="closeCockpitHoldModal();" class="text-outline hover:text-on-surface border-0 bg-transparent cursor-pointer">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'queue_process_action' active_truck.entry.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="target_status" value="TERTAHAN">
+      <input type="hidden" name="next" value="{% url 'gate_cockpit' %}?selected={{ active_truck.entry.pk }}">
+
+      <p class="font-body-sm text-body-sm text-on-surface-variant mb-2">
+        Masukkan alasan penahanan operasional armada <strong>#{{ active_truck.no_antrian }}</strong> ({{ active_truck.no_polisi }}):
+      </p>
+
+      <textarea
+        name="reason"
+        id="cockpitHoldReason"
+        required
+        rows="3"
+        class="w-full p-2 border border-outline-variant font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-secondary"
+        style="border-radius: 2px; resize: vertical;"
+        placeholder="Contoh: Overweight WIM Scale 39.5 MT, Dokumen SPPB Kadaluarsa, Segel Rusak..."
+      ></textarea>
+
+      <div class="flex items-center justify-end gap-2 mt-space-md pt-2 border-t border-outline-variant">
+        <button
+          type="button"
+          onclick="closeCockpitHoldModal();"
+          class="h-8 px-space-md bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant font-code-sm text-code-sm cursor-pointer"
+        >
+          Batal
+        </button>
+        <button
+          type="submit"
+          class="h-8 px-space-md bg-error text-on-error hover:bg-on-error-container font-code-sm text-code-sm font-bold flex items-center gap-1 cursor-pointer border-0 shadow-sm"
+        >
+          <span class="material-symbols-outlined text-[16px]">pause_circle</span>
+          <span>Tahan Armada (Submit Hold)</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- JavaScript Shortcuts, Intercom, and Actions -->
+<script>
+function filterByLane(laneName) {
+    const laneSelect = document.getElementById('laneFilterSelect');
+    if (laneSelect) {
+        laneSelect.value = laneName;
+        document.getElementById('cockpitFilterForm').submit();
+    }
+}
+
+function openCockpitHoldModal() {
+    const modal = document.getElementById('cockpitHoldModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            const textarea = document.getElementById('cockpitHoldReason');
+            if (textarea) textarea.focus();
+        }, 100);
+    }
+}
+
+function closeCockpitHoldModal() {
+    const modal = document.getElementById('cockpitHoldModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+    }
+}
+
+function triggerIntercomNotice() {
+    alert("Interkom Booth Terhubung: Memanggil armada berikutnya lewat pengeras suara...");
+}
+
+function releaseBarrierManual() {
+    alert("PERINGATAN OPERATOR: Palang barrier gate dilepas secara manual (Tercatat di Security Audit Log).");
+}
+
+function handleBarrierOpenedAnimation() {
+    // Submit form then show brief visual feedback
+}
+
+// Client-side CSV export of current table
+function exportTableToCSV(filename) {
+    const table = document.getElementById("cockpitQueueTable");
+    if (!table) return;
+
+    let csv = [];
+    for (let i = 0; i < table.rows.length; i++) {
+        let row = [], cols = table.rows[i].querySelectorAll("td, th");
+        for (let j = 0; j < cols.length - 1; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+        csv.push(row.join(","));
+    }
+
+    const csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+    const downloadLink = document.createElement("a");
+    downloadLink.download = filename;
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+        const modal = document.getElementById('cockpitHoldModal');
+        const isModalOpen = modal && modal.style.display === 'flex';
+
+        // Escape -> Close modal
+        if (e.key === 'Escape' && isModalOpen) {
+            e.preventDefault();
+            closeCockpitHoldModal();
+        }
+        // Space -> Call next
+        else if (e.code === 'Space') {
+            e.preventDefault();
+            const btnCall = document.getElementById('btnFastCall');
+            if (btnCall) {
+                btnCall.click();
+            } else {
+                triggerIntercomNotice();
+            }
+        }
+        // F4 -> Hold
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            openCockpitHoldModal();
+        }
+        // F7 -> Release barrier
+        else if (e.key === 'F7') {
+            e.preventDefault();
+            releaseBarrierManual();
+        }
+        // Ctrl+P -> Print ticket
+        else if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+            {% if active_truck %}
+                window.open("{% url 'gate_ticket' active_truck.entry.pk %}?print=1", "_blank");
+            {% endif %}
+        }
+        // Enter -> Submit primary action
+        else if (e.key === 'Enter' && !isModalOpen) {
+            const btnPrimary = document.getElementById('btnCockpitPrimary');
+            if (btnPrimary) {
+                e.preventDefault();
+                btnPrimary.click();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

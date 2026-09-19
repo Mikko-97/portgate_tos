@@ -1,0 +1,560 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Operator — Port-Gate TOS Dermaga Utara</title>
+
+    {# Google Fonts & Material Symbols #}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+
+    {# Industrial Port-Gate TOS Design System #}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+        /* Standalone Auth Screen Styles - Source of Truth: LoginView.tsx */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #041534;
+            color: #ffffff;
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            user-select: none;
+            overflow-y: auto;
+        }
+
+        .tos-auth-telemetry-bar {
+            width: 100%;
+            background-color: #020b1c;
+            border-bottom: 1px solid #1b2a4a;
+            padding: 6px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #94a3b8;
+            box-sizing: border-box;
+        }
+
+        .tos-pulse-dot-emerald {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #34d399;
+            display: inline-block;
+            animation: pulseGlow 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .tos-pulse-dot-blue {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #60a5fa;
+            display: inline-block;
+            animation: pulseGlow 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.85); }
+        }
+
+        .tos-auth-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            box-sizing: border-box;
+        }
+
+        .tos-auth-card {
+            width: 100%;
+            max-width: 440px;
+            background-color: #0a1a3a;
+            border: 1px solid #1b2a4a;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .tos-auth-card-header {
+            padding: 24px;
+            background-color: #041534;
+            border-bottom: 1px solid #1b2a4a;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .tos-auth-form {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-sizing: border-box;
+        }
+
+        .tos-auth-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            text-align: left;
+        }
+
+        .tos-auth-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tos-auth-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .tos-auth-icon {
+            position: absolute;
+            left: 10px;
+            color: #94a3b8;
+            font-size: 18px;
+            pointer-events: none;
+        }
+
+        .tos-login-input,
+        .tos-login-select {
+            width: 100%;
+            height: 38px;
+            padding-left: 36px;
+            padding-right: 12px;
+            background-color: #041534;
+            border: 1px solid #27385e;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            border-radius: 2px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .tos-login-input:focus,
+        .tos-login-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+
+        .tos-login-input::placeholder {
+            color: #64748b;
+        }
+
+        .tos-btn-toggle-pwd {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .tos-btn-toggle-pwd:hover {
+            color: #e2e8f0;
+        }
+
+        .tos-auth-checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-top: 4px;
+        }
+
+        .tos-login-checkbox {
+            width: 16px;
+            height: 16px;
+            background-color: #041534;
+            border: 1px solid #27385e;
+            accent-color: #3b82f6;
+            cursor: pointer;
+        }
+
+        .tos-auth-btn-submit {
+            width: 100%;
+            height: 42px;
+            background-color: #2563eb;
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.15s ease, transform 0.05s ease;
+            margin-top: 6px;
+        }
+
+        .tos-auth-btn-submit:hover {
+            background-color: #3b82f6;
+        }
+
+        .tos-auth-btn-submit:active {
+            transform: scale(0.99);
+        }
+
+        .tos-auth-submatrix {
+            background-color: #020b1c;
+            padding: 12px;
+            border-top: 1px solid #1b2a4a;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+        }
+
+        .tos-submatrix-cell {
+            background-color: #041534;
+            padding: 4px 2px;
+            border: 1px solid #1e293b;
+            border-radius: 2px;
+        }
+
+        .tos-auth-footer-bar {
+            background-color: #041534;
+            padding: 8px 16px;
+            border-top: 1px solid #1b2a4a;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        .tos-auth-global-footer {
+            width: 100%;
+            background-color: #020b1c;
+            border-top: 1px solid #1b2a4a;
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+            box-sizing: border-box;
+        }
+
+        .tos-auth-alert {
+            background-color: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            padding: 8px 12px;
+            font-size: 12px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+
+        .tos-auth-info-alert {
+            background-color: rgba(59, 130, 246, 0.15);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+            padding: 8px 12px;
+            font-size: 12px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    {# 1. Top System Telemetry Bar (Source of Truth: LoginView.tsx lines 28-45) #}
+    <div class="tos-auth-telemetry-bar">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; color: #34d399; font-weight: 700;">
+                <span class="tos-pulse-dot-emerald"></span>
+                TOS GATEWAY: ONLINE
+            </span>
+            <span style="color: #334155;">|</span>
+            <span>LATENCY: 12ms</span>
+            <span style="color: #334155;">|</span>
+            <span class="d-none-mobile">TERMINAL: KOJA GATEWAY 1-4</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <span id="telemetryLiveClock">SERVER TIME: {{ server_time_str }}</span>
+            <span style="color: #334155;">|</span>
+            <span style="color: #cbd5e1; font-weight: 700;">BUILD: TOS-v4.19.2-PROD</span>
+        </div>
+    </div>
+
+    {# 2. Centered Viewport Card (Source of Truth: LoginView.tsx lines 48-199) #}
+    <div class="tos-auth-container">
+        <div class="tos-auth-card">
+            {# Card Header & Brand #}
+            <div class="tos-auth-card-header">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    {% include 'components/logo.html' with logo_extra_class="me-1" %}
+                    <div style="display: flex; flex-direction: column; text-align: left;">
+                        <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.08em; color: #ffffff; text-transform: uppercase; line-height: 1;">
+                            PORT-GATE TOS
+                        </span>
+                        <span style="font-size: 10px; color: #60a5fa; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 3px;">
+                            DERMAGA UTARA
+                        </span>
+                    </div>
+                </div>
+
+                <p style="font-size: 11px; color: #94a3b8; margin: 4px 0 0 0; max-width: 320px; line-height: 1.4;">
+                    Sistem Operasi Terminal Peti Kemas - Modul Otomasi Gardu Gerbang (Gate In / Gate Out)
+                </p>
+
+                <div style="margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; background-color: #1b2a4a; border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; font-size: 11px; font-family: 'JetBrains Mono', monospace; border-radius: 2px;">
+                    <span class="tos-pulse-dot-blue"></span>
+                    <span>Shift 2 Aktif (16:00 - 00:00 WIB)</span>
+                </div>
+            </div>
+
+            {# Messages & Form Errors #}
+            {% if messages %}
+                <div style="padding: 12px 24px 0 24px;">
+                    {% for message in messages %}
+                        <div class="tos-auth-info-alert">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">info</span>
+                            <span>{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% if form.errors %}
+                <div style="padding: 12px 24px 0 24px;">
+                    <div class="tos-auth-alert" id="loginAlert">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">error</span>
+                        <div>
+                            {% if form.non_field_errors %}
+                                {% for err in form.non_field_errors %}
+                                    <div>{{ err }}</div>
+                                {% endfor %}
+                            {% else %}
+                                <div>ID Operator atau Kata Sandi tidak valid. Silakan periksa kembali kredensial Anda.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            {# Login Form #}
+            <form method="post" action="{% url 'login' %}" class="tos-auth-form" id="loginForm">
+                {% csrf_token %}
+                {% if request.GET.next %}
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% elif next %}
+                    <input type="hidden" name="next" value="{{ next }}">
+                {% endif %}
+
+                {# Field 1: ID Operator / NIP TOS #}
+                <div class="tos-auth-field">
+                    <label for="operatorIdInput" class="tos-auth-label">
+                        ID Operator / NIP TOS *
+                    </label>
+                    <div class="tos-auth-input-wrapper">
+                        <span class="material-symbols-outlined tos-auth-icon">badge</span>
+                        <input type="text"
+                               name="username"
+                               id="operatorIdInput"
+                               value="{{ form.username.value|default:'' }}"
+                               required
+                               autocomplete="username"
+                               autofocus
+                               placeholder="Contoh: TOS-88421 atau username"
+                               class="tos-login-input"
+                               style="text-transform: uppercase;">
+                    </div>
+                </div>
+
+                {# Field 2: Kata Sandi / PIN Gardu #}
+                <div class="tos-auth-field">
+                    <label for="passwordInput" class="tos-auth-label">
+                        Kata Sandi / PIN Gardu *
+                    </label>
+                    <div class="tos-auth-input-wrapper">
+                        <span class="material-symbols-outlined tos-auth-icon">lock</span>
+                        <input type="password"
+                               name="password"
+                               id="passwordInput"
+                               required
+                               autocomplete="current-password"
+                               placeholder="••••••••"
+                               class="tos-login-input">
+                        <button type="button"
+                                class="tos-btn-toggle-pwd"
+                                id="btnTogglePassword"
+                                onclick="togglePasswordVisibility();"
+                                title="Tampilkan / Sembunyikan Kata Sandi">
+                            <span class="material-symbols-outlined" id="pwdToggleIcon" style="font-size: 18px;">
+                                visibility
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                {# Field 3: Penugasan Booth / Gardu Gerbang #}
+                <div class="tos-auth-field">
+                    <label for="boothSelect" class="tos-auth-label">
+                        Penugasan Booth / Gardu Gerbang *
+                    </label>
+                    <div class="tos-auth-input-wrapper">
+                        <span class="material-symbols-outlined tos-auth-icon">meeting_room</span>
+                        <select name="booth" id="boothSelect" class="tos-login-select">
+                            <option value="gate-03" {% if form.booth.value == 'gate-03' or not form.booth.value %}selected{% endif %}>
+                                Gate Inbound 03 (Jalur 2 - Standar)
+                            </option>
+                            <option value="gate-01" {% if form.booth.value == 'gate-01' %}selected{% endif %}>
+                                Gate Inbound 01 (Jalur 1 - Timbang Cepat)
+                            </option>
+                            <option value="gate-02" {% if form.booth.value == 'gate-02' %}selected{% endif %}>
+                                Gate Inbound 02 (Jalur Reefer &amp; Khusus)
+                            </option>
+                            <option value="gate-04" {% if form.booth.value == 'gate-04' %}selected{% endif %}>
+                                Gate Inbound 04 (Jalur Masalah / Trouble)
+                            </option>
+                            <option value="out-01" {% if form.booth.value == 'out-01' %}selected{% endif %}>
+                                Gate Outbound 01 (Exit Gateway)
+                            </option>
+                            <option value="spv" {% if form.booth.value == 'spv' %}selected{% endif %}>
+                                Supervisor Kontrol Utama (Semua Jalur)
+                            </option>
+                        </select>
+                    </div>
+                </div>
+
+                {# Field 4: Remember Me Checkbox #}
+                <div class="tos-auth-checkbox-row">
+                    <input type="checkbox"
+                           name="remember_me"
+                           id="rememberMe"
+                           checked
+                           class="tos-login-checkbox">
+                    <label for="rememberMe" style="font-size: 12px; color: #cbd5e1; cursor: pointer; user-select: none;">
+                        Ingat sesi di komputer gardu ini (Shift 8 Jam)
+                    </label>
+                </div>
+
+                {# Submit Button #}
+                <button type="submit" class="tos-auth-btn-submit" id="btnLoginSubmit">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">login</span>
+                    <span>Masuk ke Sistem TOS [Enter]</span>
+                </button>
+            </form>
+
+            {# System Sub-Matrix (Source of Truth: LoginView.tsx lines 175-192) #}
+            <div class="tos-auth-submatrix">
+                <div class="tos-submatrix-cell">
+                    <span style="color: #94a3b8; display: block;">Status</span>
+                    <span style="color: #34d399; font-weight: 700;">ONLINE</span>
+                </div>
+                <div class="tos-submatrix-cell">
+                    <span style="color: #94a3b8; display: block;">OCR CAM</span>
+                    <span style="color: #60a5fa; font-weight: 700;">READY</span>
+                </div>
+                <div class="tos-submatrix-cell">
+                    <span style="color: #94a3b8; display: block;">WIM SCALE</span>
+                    <span style="color: #60a5fa; font-weight: 700;">CALIB</span>
+                </div>
+                <div class="tos-submatrix-cell">
+                    <span style="color: #94a3b8; display: block;">BARRIER</span>
+                    <span style="color: #34d399; font-weight: 700;">ARM OK</span>
+                </div>
+            </div>
+
+            {# Card Footer Bar #}
+            <div class="tos-auth-footer-bar">
+                Navigasi: [Tab] Pindah Field | [Enter] Masuk | [Esc] Batal
+            </div>
+        </div>
+    </div>
+
+    {# 3. Global Security Footer (Source of Truth: LoginView.tsx lines 202-207) #}
+    <div class="tos-auth-global-footer">
+        <p style="margin: 0;">Terminal Peti Kemas Koja - Pelabuhan Tanjung Priok, Jakarta Utara</p>
+        <p style="margin: 3px 0 0 0; font-size: 10px; color: #475569;">
+            Sistem Terakreditasi Keamanan Maritim Internasional - Level 1 ISPS Code Compliant
+        </p>
+    </div>
+
+    <script>
+    // 1. Password Visibility Toggle
+    function togglePasswordVisibility() {
+        const input = document.getElementById('passwordInput');
+        const icon = document.getElementById('pwdToggleIcon');
+        if (!input || !icon) return;
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.textContent = 'visibility_off';
+        } else {
+            input.type = 'password';
+            icon.textContent = 'visibility';
+        }
+    }
+
+    // 2. Realtime Telemetry Server Clock
+    function updateTelemetryClock() {
+        const el = document.getElementById('telemetryLiveClock');
+        if (!el) return;
+        const now = new Date();
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = months[now.getMonth()];
+        const year = now.getFullYear();
+        const hrs = String(now.getHours()).padStart(2, '0');
+        const mins = String(now.getMinutes()).padStart(2, '0');
+        const secs = String(now.getSeconds()).padStart(2, '0');
+
+        el.textContent = `SERVER TIME: ${day}-${month}-${year} ${hrs}:${mins}:${secs} WIB`;
+    }
+    setInterval(updateTelemetryClock, 1000);
+    updateTelemetryClock();
+
+    // 3. Hotkeys: [Escape] to reset form, [Enter] to submit
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const form = document.getElementById('loginForm');
+            if (form) {
+                const opInput = document.getElementById('operatorIdInput');
+                const pwdInput = document.getElementById('passwordInput');
+                if (pwdInput) pwdInput.value = '';
+                if (opInput) {
+                    opInput.value = '';
+                    opInput.focus();
+                }
+            }
+        }
+    });
+    </script>
+</body>
+</html>

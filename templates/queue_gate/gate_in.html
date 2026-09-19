@@ -1,0 +1,882 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Registrasi Truk Masuk (Gate In) — Port-Gate TOS Dermaga Utara{% endblock %}
+
+{% block viewport_class %}tos-viewport-no-padding{% endblock %}
+
+{% block content %}
+<div class="flex flex-col w-full select-none">
+  <!-- 1. Sub-Header Breadcrumb & Status Bar (Stitch Spec) -->
+  <div class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm flex flex-col md:flex-row md:items-center justify-between gap-space-sm">
+    <div class="flex items-center gap-space-xs font-code-sm text-code-sm overflow-hidden flex-wrap">
+      <a
+        href="{% url 'queue_list' %}"
+        class="text-secondary font-semibold hover:underline flex items-center gap-1 cursor-pointer text-decoration-none"
+      >
+        <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+        <span>Antrian &amp; Gate In / Out</span>
+      </a>
+      <span class="text-outline">/</span>
+      <span class="text-on-surface font-bold">Registrasi Truk Masuk Baru (Gate In Manual)</span>
+    </div>
+
+    <div class="flex items-center gap-space-sm">
+      <span class="font-code-sm text-code-sm text-outline hidden sm:inline">
+        BOOTH: {{ op_info.booth|upper }} • SHIFT: {{ op_info.shift|upper }} | TOS NODE: KJA-L2
+      </span>
+      <a
+        href="{% url 'queue_list' %}"
+        class="h-8 px-space-sm bg-surface-container text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center gap-1 transition-colors cursor-pointer text-decoration-none"
+      >
+        <span class="material-symbols-outlined text-[16px]">close</span>
+        <span>Batal [Esc]</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="p-space-md flex flex-col gap-space-md max-w-6xl mx-auto w-full">
+
+    <!-- 2. Dynamic Warning Banner for Duplicate Active Queue -->
+    <div id="activeQueueWarning" class="hidden bg-error-container border border-error p-space-md items-start gap-space-sm shadow-sm" role="alert">
+      <span class="material-symbols-outlined text-error text-[24px] flex-shrink-0">warning</span>
+      <div class="flex flex-col">
+        <span class="font-headline-sm text-headline-sm text-on-error-container font-bold uppercase">
+          PERINGATAN: TRUK SEDANG DALAM ANTRIAN AKTIF!
+        </span>
+        <span id="activeQueueDetail" class="font-body-sm text-body-sm text-on-error-container mt-0.5">
+          Truk dengan nomor polisi ini masih terdaftar dalam antrian aktif dan belum keluar dari terminal.
+        </span>
+      </div>
+    </div>
+
+    <!-- 3. Non-field Error Alert -->
+    {% if form.non_field_errors %}
+      <div class="bg-error-container border border-error p-space-md flex items-start gap-space-sm shadow-sm" role="alert">
+        <span class="material-symbols-outlined text-error text-[20px] flex-shrink-0">error</span>
+        <div class="font-body-sm text-body-sm text-on-error-container">
+          {% for error in form.non_field_errors %}
+            <div>{{ error }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- 4. Form Cockpit Workspace Card (Stitch Spec) -->
+    <form method="POST" action="{% url 'gate_in' %}" id="gateInForm" class="tos-gate-in-form bg-surface-container-lowest border border-outline-variant shadow-sm" novalidate>
+      {% csrf_token %}
+      {{ form.action_type }}
+
+      <!-- Title & Lane Banner -->
+      <div class="bg-primary text-on-primary p-space-md flex flex-col md:flex-row md:items-center justify-between gap-space-sm border-b border-primary-container">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px] text-secondary-fixed">assignment</span>
+            <span class="font-headline-lg text-headline-lg text-on-primary font-bold tracking-tight">
+              Formulir Registrasi Truk Masuk (Gate In)
+            </span>
+          </div>
+          <span class="font-code-sm text-code-sm text-on-primary-container block mt-0.5">
+            Petugas: <span class="font-bold text-on-primary">{{ op_info.nama_petugas }} ({{ op_info.nip }})</span> | Gardu: {{ op_info.booth }} | Waktu Sistem: {{ current_time }}
+          </span>
+        </div>
+
+        <!-- WIM Tare Readout -->
+        <div class="flex items-center gap-2 bg-primary-container/80 px-space-md py-1.5 border border-outline/30">
+          <span class="material-symbols-outlined text-[18px] text-secondary-fixed">scale</span>
+          <div class="flex flex-col">
+            <span class="font-label-caps text-[9px] text-on-primary-container uppercase">WIM SCALE TARE</span>
+            <span class="font-code-md text-code-md font-bold text-on-primary">0.00 MT (STANDBY)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- OCR Quick Feed Bar -->
+      <div class="bg-surface-container-low p-space-sm px-space-md border-b border-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center gap-2 font-code-sm text-code-sm">
+          <span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+          <span class="font-bold text-on-surface">KAMERA OCR GARDU 01 ({{ telemetry.ocr_status|default:'READY' }})</span>
+          <span class="text-outline">|</span>
+          <span class="text-on-surface-variant text-[11px]">Dapat mengisi otomatis Nopol &amp; No. Kontainer</span>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button
+            id="btnScanOCR"
+            type="button"
+            class="h-7 px-space-sm bg-secondary text-on-secondary hover:bg-primary font-code-sm text-code-sm font-bold flex items-center gap-1 transition-colors cursor-pointer border-0"
+          >
+            <span class="material-symbols-outlined text-[15px]">photo_camera</span>
+            <span>SCAN OCR KAMERA BOOTH [F2]</span>
+          </button>
+          <button
+            id="btnResetTop"
+            type="button"
+            class="h-7 px-2 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant font-code-sm text-code-sm flex items-center cursor-pointer"
+          >
+            <span>Reset [F4]</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2 Structural Form Sections (Seksi 1 & 2) -->
+      <div class="p-space-md grid grid-cols-1 lg:grid-cols-2 gap-space-xl">
+        <!-- Seksi 1: Data Identitas Armada & Pengemudi -->
+        <div class="flex flex-col gap-space-md">
+          <div class="flex items-center justify-between border-b border-outline-variant pb-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 bg-primary text-on-primary font-code-sm text-center text-xs font-bold leading-5 inline-block">
+                1
+              </span>
+              <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Data Identitas Armada &amp; Pengemudi
+              </span>
+            </div>
+            <span class="font-code-sm text-[10px] text-secondary font-semibold hidden sm:inline">
+              AUTO-FILL AKTIF
+            </span>
+          </div>
+
+          <!-- Input: Nomor Polisi -->
+          <div>
+            <label for="{{ form.no_polisi.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.no_polisi.label }} <span class="text-error">*</span>
+            </label>
+            <div class="relative">
+              {{ form.no_polisi }}
+              <button
+                type="button"
+                id="btnLookupPlate"
+                class="tos-input-lookup-btn"
+                title="Cek Master Data Truk"
+              >
+                <span class="material-symbols-outlined">search</span>
+                <span>CARI</span>
+              </button>
+            </div>
+            <div id="plateFeedback" class="font-code-sm text-[11px] text-outline mt-1">
+              Ketik nomor polisi lalu tekan Tab / Enter untuk pencarian otomatis master armada.
+            </div>
+            {% if form.no_polisi.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.no_polisi.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Input: Nama Sopir -->
+          <div>
+            <label for="{{ form.nama_driver.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.nama_driver.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.nama_driver }}
+            {% if form.nama_driver.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.nama_driver.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Input: No HP Sopir -->
+          <div>
+            <label for="{{ form.no_hp_driver.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.no_hp_driver.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.no_hp_driver }}
+            {% if form.no_hp_driver.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.no_hp_driver.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Input: No SIM Sopir -->
+          <div>
+            <label for="{{ form.no_sim_driver.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.no_sim_driver.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.no_sim_driver }}
+            {% if form.no_sim_driver.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.no_sim_driver.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Select: Konfigurasi Truk -->
+          <div>
+            <label for="{{ form.konfigurasi.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.konfigurasi.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.konfigurasi }}
+            {% if form.konfigurasi.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.konfigurasi.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Input: Perusahaan Ekspedisi -->
+          <div>
+            <label for="{{ form.nama_ekspedisi.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.nama_ekspedisi.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.nama_ekspedisi }}
+            <div class="hidden">
+              {{ form.kode_ekspedisi }}
+            </div>
+            {% if form.nama_ekspedisi.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.nama_ekspedisi.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Input: RFID Tag CMS -->
+          <div>
+            <label for="{{ form.rfid_tag.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.rfid_tag.label }}
+            </label>
+            {{ form.rfid_tag }}
+            {% if form.rfid_tag.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.rfid_tag.errors.0 }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Seksi 2: Penugasan Kontainer & Alokasi Muatan -->
+        <div class="flex flex-col gap-space-md">
+          <div class="flex items-center justify-between border-b border-outline-variant pb-2">
+            <div class="flex items-center gap-1.5">
+              <span class="w-5 h-5 bg-primary text-on-primary font-code-sm text-center text-xs font-bold leading-5 inline-block">
+                2
+              </span>
+              <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Penugasan Kontainer &amp; Alokasi Muatan
+              </span>
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="{{ form.has_container.id_for_label }}" class="font-code-sm text-code-sm text-on-surface font-semibold cursor-pointer">
+                Membawa Kontainer
+              </label>
+              {{ form.has_container }}
+            </div>
+          </div>
+
+          <div id="containerSection" class="flex flex-col gap-space-md transition-opacity">
+            <!-- Input: Nomor Kontainer -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label for="{{ form.no_kontainer.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block">
+                  {{ form.no_kontainer.label }} <span class="text-error">*</span>
+                </label>
+                <span id="containerChecksumBadge" class="px-1.5 py-0.5 bg-primary-fixed text-on-primary-fixed font-code-sm text-[10px] font-bold">
+                  ISO 6346 CHECK
+                </span>
+              </div>
+              <div class="relative">
+                {{ form.no_kontainer }}
+                <button
+                  type="button"
+                  id="btnLookupContainer"
+                  class="tos-input-lookup-btn"
+                  title="Cek Master Data Kontainer"
+                >
+                  <span class="material-symbols-outlined">search</span>
+                  <span>CARI</span>
+                </button>
+              </div>
+              <div class="font-code-sm text-[11px] text-outline mt-1">
+                Format standar ISO 6346: 4 huruf kapital + 7 angka (contoh: MSKU7712391).
+              </div>
+              {% if form.no_kontainer.errors %}
+                <div class="text-error font-body-xs mt-1">{{ form.no_kontainer.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Input: No Dokumen SPPB / DO -->
+            <div>
+              <label for="{{ form.ref_dokumen.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                Nomor Dokumen SPPB / Delivery Order (DO) / Booking <span class="text-error">*</span>
+              </label>
+              {{ form.ref_dokumen }}
+              <div class="font-code-sm text-[11px] text-outline mt-1">
+                Wajib diisi untuk status muatan Import Full / Export Full.
+              </div>
+              {% if form.ref_dokumen.errors %}
+                <div class="text-error font-body-xs mt-1">{{ form.ref_dokumen.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Select Ukuran Kontainer Radio Pills -->
+            <div>
+              <label for="{{ form.ukuran.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                {{ form.ukuran.label }}
+              </label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  data-val="20ft"
+                  class="tos-pill-btn pill-size"
+                >
+                  20 FT STANDARD
+                </button>
+                <button
+                  type="button"
+                  data-val="40ft"
+                  class="tos-pill-btn pill-size active"
+                >
+                  40 FT HIGH CUBE
+                </button>
+                <button
+                  type="button"
+                  data-val="45ft"
+                  class="tos-pill-btn pill-size"
+                >
+                  45 FT EXTENDED
+                </button>
+              </div>
+              <div class="hidden">
+                {{ form.ukuran }}
+              </div>
+              {% if form.ukuran.errors %}
+                <div class="text-error font-body-xs mt-1">{{ form.ukuran.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Select Tipe Kontainer -->
+            <div>
+              <label for="{{ form.tipe.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                {{ form.tipe.label }}
+              </label>
+              {{ form.tipe }}
+              {% if form.tipe.errors %}
+                <div class="text-error font-body-xs mt-1">{{ form.tipe.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Select Kategori Muatan Radio Pills -->
+            <div>
+              <label for="{{ form.kategori.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                {{ form.kategori.label }} <span class="text-error">*</span>
+              </label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  data-val="IMPORT"
+                  class="tos-pill-btn pill-cat active-primary"
+                >
+                  IMPORT FULL
+                </button>
+                <button
+                  type="button"
+                  data-val="EXPORT"
+                  class="tos-pill-btn pill-cat"
+                >
+                  EXPORT FULL
+                </button>
+                <button
+                  type="button"
+                  data-val="EMPTY_RETURN"
+                  class="tos-pill-btn pill-cat"
+                >
+                  EMPTY RETURN
+                </button>
+              </div>
+              <div class="hidden">
+                {{ form.kategori }}
+              </div>
+              {% if form.kategori.errors %}
+                <div class="text-error font-body-xs mt-1">{{ form.kategori.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Input Nomor Segel & Estimasi Berat -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+              <div>
+                <label for="{{ form.seal_number.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                  {{ form.seal_number.label }}
+                </label>
+                {{ form.seal_number }}
+                {% if form.seal_number.errors %}
+                  <div class="text-error font-body-xs mt-1">{{ form.seal_number.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label for="{{ form.berat_kotor.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                  {{ form.berat_kotor.label }} <span class="text-error">*</span>
+                </label>
+                {{ form.berat_kotor }}
+                {% if form.berat_kotor.errors %}
+                  <div class="text-error font-body-xs mt-1">{{ form.berat_kotor.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Shipping Line & Status VGM -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+              <div>
+                <label for="{{ form.shipping_line.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                  {{ form.shipping_line.label }}
+                </label>
+                {{ form.shipping_line }}
+                {% if form.shipping_line.errors %}
+                  <div class="text-error font-body-xs mt-1">{{ form.shipping_line.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label for="{{ form.status_vgm.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+                  {{ form.status_vgm.label }}
+                </label>
+                {{ form.status_vgm }}
+                {% if form.status_vgm.errors %}
+                  <div class="text-error font-body-xs mt-1">{{ form.status_vgm.errors.0 }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Checkbox VGM Verification -->
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                type="checkbox"
+                id="vgmCheck"
+                checked
+                class="form-check-input w-4 h-4 cursor-pointer"
+              />
+              <label for="vgmCheck" class="font-body-sm text-body-sm text-on-surface select-none cursor-pointer">
+                Konfirmasi Dokumen Berat Terverifikasi (SOLAS VGM Valid)
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Seksi 3: Alokasi Lapangan (Yard) & Jalur Gerbang -->
+      <div class="p-space-md border-t border-outline-variant flex flex-col gap-space-md">
+        <div class="flex items-center gap-1.5 border-b border-outline-variant pb-2">
+          <span class="w-5 h-5 bg-primary text-on-primary font-code-sm text-center text-xs font-bold leading-5 inline-block">
+            3
+          </span>
+          <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">
+            Jalur Gerbang &amp; Rencana Alokasi Yard
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-space-sm">
+          <!-- Jalur / Lane Gerbang -->
+          <div>
+            <label for="{{ form.gerbang_lane.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.gerbang_lane.label }} <span class="text-error">*</span>
+            </label>
+            {{ form.gerbang_lane }}
+            {% if form.gerbang_lane.errors %}
+              <div class="text-error font-body-xs mt-1">{{ form.gerbang_lane.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Yard Block -->
+          <div>
+            <label for="{{ form.alokasi_blok.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.alokasi_blok.label }}
+            </label>
+            {{ form.alokasi_blok }}
+          </div>
+
+          <!-- Yard Bay -->
+          <div>
+            <label for="{{ form.alokasi_bay.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.alokasi_bay.label }}
+            </label>
+            {{ form.alokasi_bay }}
+          </div>
+
+          <!-- Yard Row -->
+          <div>
+            <label for="{{ form.alokasi_row.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.alokasi_row.label }}
+            </label>
+            {{ form.alokasi_row }}
+          </div>
+
+          <!-- Yard Tier -->
+          <div>
+            <label for="{{ form.alokasi_tier.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+              {{ form.alokasi_tier.label }}
+            </label>
+            {{ form.alokasi_tier }}
+          </div>
+        </div>
+
+        <!-- Catatan Operasional -->
+        <div>
+          <label for="{{ form.catatan.id_for_label }}" class="font-label-caps text-label-caps text-outline uppercase block mb-1">
+            {{ form.catatan.label }}
+          </label>
+          {{ form.catatan }}
+        </div>
+
+        <!-- Alasan Tertahan (Hold Panel) -->
+        <div id="holdReasonPanel" class="hidden p-space-md bg-tertiary-container/10 border border-tertiary-container">
+          <label for="{{ form.alasan_tertahan.id_for_label }}" class="font-label-caps text-label-caps text-on-tertiary-container font-bold uppercase block mb-1">
+            <span class="material-symbols-outlined text-[15px] align-middle text-error me-1">shield_with_heart</span>
+            {{ form.alasan_tertahan.label }} <span class="text-error">*</span>
+          </label>
+          {{ form.alasan_tertahan }}
+          <div class="font-code-sm text-[11px] text-on-surface-variant mt-1">
+            Sebutkan alasan penahanan operasional di gerbang (misal: "Overweight timbangan WIM 39.2 MT", "Dokumen SPPB Kadaluarsa", dll).
+          </div>
+          {% if form.alasan_tertahan.errors %}
+            <div class="text-error font-body-xs mt-1">{{ form.alasan_tertahan.errors.0 }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Form Action & Dispatch Bar (Stitch Spec) -->
+      <div class="tos-gate-in-actions bg-surface-container p-space-md border-t border-outline-variant">
+        <a
+          href="{% url 'queue_list' %}"
+          class="h-9 px-space-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-sm text-code-sm flex items-center cursor-pointer text-decoration-none"
+          id="btnCancel"
+        >
+          Batal / Reset [Esc]
+        </a>
+        <button
+          type="button"
+          id="btnToggleHold"
+          class="h-9 px-space-md bg-tertiary-container text-on-tertiary-container hover:bg-tertiary font-code-sm text-code-sm font-semibold flex items-center gap-1.5 cursor-pointer border-0 transition-colors"
+        >
+          <span class="material-symbols-outlined text-[16px]">pause_circle</span>
+          <span id="btnToggleHoldText">Tahan Truk (Hold Gate)</span>
+        </button>
+        <button
+          type="button"
+          id="btnSubmitPrint"
+          class="h-9 px-space-md bg-surface-container-lowest text-on-surface hover:bg-surface-container-high border border-outline-variant font-code-md text-code-md font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+        >
+          <span class="material-symbols-outlined text-[18px]">print</span>
+          <span>Simpan &amp; Cetak Tiket [Ctrl+P]</span>
+        </button>
+        <button
+          type="button"
+          id="btnSubmitSave"
+          class="h-9 px-space-xl bg-primary text-on-primary hover:bg-primary-container font-code-md text-code-md font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer border-0"
+        >
+          <span class="material-symbols-outlined text-[18px]">done_all</span>
+          <span>SIMPAN &amp; MASUKKAN ANTRIAN [ENTER]</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Operational Shortcut Cheat Sheet (Stitch Spec) -->
+    <div class="p-space-sm bg-surface-container-low border border-outline-variant font-code-sm text-[11px] text-outline flex items-center justify-between flex-wrap gap-2">
+      <span class="font-bold text-on-surface">Pintasan Keyboard:</span>
+      <span>[Enter] Simpan Data</span>
+      <span>[Ctrl+P] Cetak Slip EIR</span>
+      <span>[F2] Trigger OCR Kamera</span>
+      <span>[F4] Reset Form</span>
+      <span>[Esc] Kembali ke Antrian</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- JavaScript Integration: Auto-fill, Checksum, Radio-Pills & Shortcuts -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const inputPlate = document.getElementById('id_no_polisi');
+    const inputContainer = document.getElementById('id_no_kontainer');
+    const checkHasContainer = document.getElementById('id_has_container');
+    const containerSection = document.getElementById('containerSection');
+    const holdPanel = document.getElementById('holdReasonPanel');
+    const inputHoldReason = document.getElementById('id_alasan_tertahan');
+    const actionTypeInput = document.getElementById('id_action_type');
+    const activeWarning = document.getElementById('activeQueueWarning');
+    const activeDetail = document.getElementById('activeQueueDetail');
+    const form = document.getElementById('gateInForm');
+    const btnToggleHold = document.getElementById('btnToggleHold');
+    const btnToggleHoldText = document.getElementById('btnToggleHoldText');
+    const checksumBadge = document.getElementById('containerChecksumBadge');
+
+    // 1. Toggle Container Section
+    function toggleContainerInputs() {
+        if (!checkHasContainer.checked) {
+            containerSection.style.opacity = '0.4';
+            containerSection.style.pointerEvents = 'none';
+            inputContainer.disabled = true;
+        } else {
+            containerSection.style.opacity = '1';
+            containerSection.style.pointerEvents = 'auto';
+            inputContainer.disabled = false;
+        }
+    }
+    checkHasContainer.addEventListener('change', toggleContainerInputs);
+    toggleContainerInputs();
+
+    // 2. Auto-fill Truck & Driver by Plate
+    function lookupTruck(plate) {
+        if (!plate || plate.trim().length < 3) return;
+
+        fetch(`/api/truck-lookup/?plate=${encodeURIComponent(plate.trim())}`)
+            .then(res => res.json())
+            .then(data => {
+                // Check active queue duplicate alert
+                if (data.has_active_queue && data.active_queue) {
+                    activeDetail.innerHTML = `Truk <strong>${plate}</strong> sudah terdaftar dalam antrian <strong>${data.active_queue.no_antrian}</strong> (${data.active_queue.status}) sejak ${data.active_queue.waktu_masuk}. Truk harus menyelesaikan proses dan keluar terminal terlebih dahulu.`;
+                    activeWarning.classList.remove('hidden');
+                    activeWarning.classList.add('flex');
+                } else {
+                    activeWarning.classList.add('hidden');
+                    activeWarning.classList.remove('flex');
+                }
+
+                if (data.found) {
+                    if (data.konfigurasi && document.getElementById('id_konfigurasi')) {
+                        document.getElementById('id_konfigurasi').value = data.konfigurasi;
+                    }
+                    if (data.nama_ekspedisi && document.getElementById('id_nama_ekspedisi')) {
+                        document.getElementById('id_nama_ekspedisi').value = data.nama_ekspedisi;
+                    }
+                    if (data.kode_ekspedisi && document.getElementById('id_kode_ekspedisi')) {
+                        document.getElementById('id_kode_ekspedisi').value = data.kode_ekspedisi;
+                    }
+                    if (data.nama_driver && document.getElementById('id_nama_driver')) {
+                        document.getElementById('id_nama_driver').value = data.nama_driver;
+                    }
+                    if (data.no_hp_driver && document.getElementById('id_no_hp_driver')) {
+                        document.getElementById('id_no_hp_driver').value = data.no_hp_driver;
+                    }
+                    if (data.no_sim_driver && document.getElementById('id_no_sim_driver')) {
+                        document.getElementById('id_no_sim_driver').value = data.no_sim_driver;
+                    }
+                    if (data.rfid_tag && document.getElementById('id_rfid_tag')) {
+                        document.getElementById('id_rfid_tag').value = data.rfid_tag;
+                    }
+                }
+            })
+            .catch(err => console.error("Error looking up truck:", err));
+    }
+
+    inputPlate.addEventListener('blur', function() {
+        lookupTruck(this.value);
+    });
+    document.getElementById('btnLookupPlate').addEventListener('click', function() {
+        lookupTruck(inputPlate.value);
+    });
+
+    // 3. Auto-fill Container by Container Number
+    function lookupContainer(no) {
+        if (!no || no.trim().length < 6) return;
+
+        fetch(`/api/container-lookup/?no=${encodeURIComponent(no.trim())}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.found) {
+                    if (data.ukuran && document.getElementById('id_ukuran')) {
+                        document.getElementById('id_ukuran').value = data.ukuran;
+                        updateSizePill(data.ukuran);
+                    }
+                    if (data.tipe && document.getElementById('id_tipe')) {
+                        document.getElementById('id_tipe').value = data.tipe;
+                    }
+                    if (data.kategori && document.getElementById('id_kategori')) {
+                        document.getElementById('id_kategori').value = data.kategori;
+                        updateCatPill(data.kategori);
+                    }
+                    if (data.berat_kotor && document.getElementById('id_berat_kotor')) {
+                        document.getElementById('id_berat_kotor').value = data.berat_kotor;
+                    }
+                    if (data.shipping_line && document.getElementById('id_shipping_line')) {
+                        document.getElementById('id_shipping_line').value = data.shipping_line;
+                    }
+                    if (data.seal_number && document.getElementById('id_seal_number')) {
+                        document.getElementById('id_seal_number').value = data.seal_number;
+                    }
+                    if (data.ref_dokumen && document.getElementById('id_ref_dokumen')) {
+                        document.getElementById('id_ref_dokumen').value = data.ref_dokumen;
+                    }
+                    if (data.status_vgm && document.getElementById('id_status_vgm')) {
+                        document.getElementById('id_status_vgm').value = data.status_vgm;
+                    }
+                }
+            })
+            .catch(err => console.error("Error looking up container:", err));
+    }
+
+    inputContainer.addEventListener('blur', function() {
+        lookupContainer(this.value);
+        checkContainerChecksum(this.value);
+    });
+    inputContainer.addEventListener('input', function() {
+        checkContainerChecksum(this.value);
+    });
+    document.getElementById('btnLookupContainer').addEventListener('click', function() {
+        lookupContainer(inputContainer.value);
+    });
+
+    // 4. Container ISO 6346 Live Format Verification
+    function checkContainerChecksum(no) {
+        if (!checksumBadge) return;
+        const clean = (no || '').replace(/[\s\-]/g, '').toUpperCase();
+        const isoRegex = /^[A-Z]{4}[0-9]{7}$/;
+        if (isoRegex.test(clean)) {
+            checksumBadge.textContent = 'ISO 6346: VALID';
+            checksumBadge.className = 'px-1.5 py-0.5 bg-secondary text-on-secondary font-code-sm text-[10px] font-bold';
+        } else if (clean.length > 0) {
+            checksumBadge.textContent = 'FORMAT ISO SALAH';
+            checksumBadge.className = 'px-1.5 py-0.5 bg-error text-on-error font-code-sm text-[10px] font-bold';
+        } else {
+            checksumBadge.textContent = 'ISO 6346 CHECK';
+            checksumBadge.className = 'px-1.5 py-0.5 bg-primary-fixed text-on-primary-fixed font-code-sm text-[10px] font-bold';
+        }
+    }
+    checkContainerChecksum(inputContainer.value);
+
+    // 5. Pill Group for Container Size
+    const selectUkuran = document.getElementById('id_ukuran');
+    const sizePills = document.querySelectorAll('.pill-size');
+    function updateSizePill(val) {
+        sizePills.forEach(pill => {
+            if (pill.getAttribute('data-val') === String(val)) {
+                pill.classList.add('active');
+            } else {
+                pill.classList.remove('active');
+            }
+        });
+    }
+    sizePills.forEach(pill => {
+        pill.addEventListener('click', function() {
+            const val = this.getAttribute('data-val');
+            if (selectUkuran) {
+                selectUkuran.value = val;
+            }
+            updateSizePill(val);
+        });
+    });
+    if (selectUkuran) {
+        updateSizePill(selectUkuran.value);
+        selectUkuran.addEventListener('change', () => updateSizePill(selectUkuran.value));
+    }
+
+    // 6. Pill Group for Cargo Category
+    const selectKategori = document.getElementById('id_kategori');
+    const catPills = document.querySelectorAll('.pill-cat');
+    function updateCatPill(val) {
+        catPills.forEach(pill => {
+            if (pill.getAttribute('data-val') === String(val)) {
+                pill.classList.add('active-primary');
+            } else {
+                pill.classList.remove('active-primary');
+            }
+        });
+    }
+    catPills.forEach(pill => {
+        pill.addEventListener('click', function() {
+            const val = this.getAttribute('data-val');
+            if (selectKategori) {
+                selectKategori.value = val;
+            }
+            updateCatPill(val);
+        });
+    });
+    if (selectKategori) {
+        updateCatPill(selectKategori.value);
+        selectKategori.addEventListener('change', () => updateCatPill(selectKategori.value));
+    }
+
+    // 7. Toggle Hold Mode
+    let isHoldMode = false;
+    {% if form.alasan_tertahan.errors or form.action_type.value == 'hold' %}
+        isHoldMode = true;
+        holdPanel.classList.remove('hidden');
+        actionTypeInput.value = 'hold';
+        btnToggleHold.classList.remove('bg-tertiary-container', 'text-on-tertiary-container');
+        btnToggleHold.classList.add('bg-error', 'text-on-error');
+        btnToggleHoldText.textContent = 'Mode Hold Aktif (Submit Hold)';
+    {% endif %}
+
+    btnToggleHold.addEventListener('click', function() {
+        isHoldMode = !isHoldMode;
+        if (isHoldMode) {
+            holdPanel.classList.remove('hidden');
+            actionTypeInput.value = 'hold';
+            btnToggleHold.classList.remove('bg-tertiary-container', 'text-on-tertiary-container');
+            btnToggleHold.classList.add('bg-error', 'text-on-error');
+            btnToggleHoldText.textContent = 'Mode Hold Aktif (Submit Hold)';
+            if (inputHoldReason) inputHoldReason.focus();
+        } else {
+            holdPanel.classList.add('hidden');
+            actionTypeInput.value = 'save';
+            btnToggleHold.classList.remove('bg-error', 'text-on-error');
+            btnToggleHold.classList.add('bg-tertiary-container', 'text-on-tertiary-container');
+            btnToggleHoldText.textContent = 'Tahan Truk (Hold Gate)';
+        }
+    });
+
+    // 8. Submit Handlers
+    document.getElementById('btnSubmitSave').addEventListener('click', function() {
+        if (!isHoldMode) {
+            actionTypeInput.value = 'save';
+        }
+        form.submit();
+    });
+
+    document.getElementById('btnSubmitPrint').addEventListener('click', function() {
+        actionTypeInput.value = 'save_print';
+        form.submit();
+    });
+
+    // 9. OCR Quick Feed Simulation / Autofill (F2)
+    function triggerOCRScan() {
+        inputPlate.value = 'B 9044 UXX';
+        inputContainer.value = 'MSKU4492109';
+        const weightInput = document.getElementById('id_berat_kotor');
+        if (weightInput) weightInput.value = '33120';
+        const refInput = document.getElementById('id_ref_dokumen');
+        if (refInput && !refInput.value) refInput.value = 'SPPB-09921/KPU.01/2023';
+
+        lookupTruck('B 9044 UXX');
+        lookupContainer('MSKU4492109');
+        checkContainerChecksum('MSKU4492109');
+    }
+    const btnScanOCR = document.getElementById('btnScanOCR');
+    if (btnScanOCR) {
+        btnScanOCR.addEventListener('click', triggerOCRScan);
+    }
+
+    // 10. Reset Form (F4)
+    function resetFormFields() {
+        form.reset();
+        activeWarning.classList.add('hidden');
+        activeWarning.classList.remove('flex');
+        checkContainerChecksum('');
+        if (selectUkuran) updateSizePill(selectUkuran.value);
+        if (selectKategori) updateCatPill(selectKategori.value);
+        toggleContainerInputs();
+    }
+    const btnResetTop = document.getElementById('btnResetTop');
+    if (btnResetTop) {
+        btnResetTop.addEventListener('click', resetFormFields);
+    }
+
+    // 11. Keyboard Shortcuts Support
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+P -> Save and Print Ticket
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+            e.preventDefault();
+            actionTypeInput.value = 'save_print';
+            form.submit();
+        }
+        // F2 -> Trigger OCR
+        else if (e.key === 'F2') {
+            e.preventDefault();
+            triggerOCRScan();
+        }
+        // F4 -> Reset
+        else if (e.key === 'F4') {
+            e.preventDefault();
+            resetFormFields();
+        }
+        // Escape -> Back to Queue List
+        else if (e.key === 'Escape') {
+            window.location.href = "{% url 'queue_list' %}";
+        }
+        // Enter -> Submit Save (only when not inside textarea)
+        else if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+            e.preventDefault();
+            if (!isHoldMode) {
+                actionTypeInput.value = 'save';
+            }
+            form.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

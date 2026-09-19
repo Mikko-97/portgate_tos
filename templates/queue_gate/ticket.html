@@ -1,0 +1,301 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tiket Antrian EIR - {{ queue.no_antrian }} ({{ queue.truck.no_polisi }}){% endblock %}
+
+{% block extra_css %}
+<style>
+/* Styling Tiket Terminal / EIR Print Layout */
+.ticket-container {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 2px solid #1e293b;
+    border-radius: 6px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.ticket-header {
+    border-bottom: 2px solid #1e293b;
+    background: #0f172a;
+    color: #ffffff;
+    padding: 1.25rem;
+    text-align: center;
+}
+
+.ticket-queue-box {
+    background: #f8fafc;
+    border: 2px dashed #0284c7;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+
+.ticket-barcode {
+    font-family: 'Libre Barcode 39', 'Courier New', monospace;
+    font-size: 2.5rem;
+    letter-spacing: 4px;
+    line-height: 1;
+}
+
+.table-ticket th {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    width: 32%;
+}
+
+.table-ticket td {
+    font-size: 0.85rem;
+}
+
+/* Aturan Cetak (Print Media) */
+@media print {
+    body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    header, footer, nav, .tos-navbar, .no-print, .alert, .btn {
+        display: none !important;
+    }
+    main {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .container, .container-fluid, .row, .col-12, .col-md-10, .col-lg-8 {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    .ticket-container {
+        border: 2px solid #000000 !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
+    }
+    .ticket-header {
+        background: #000000 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    @page {
+        margin: 0.8cm;
+        size: auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-md-10 col-lg-8">
+
+        <!-- Toolbar Tombol Aksi (Hanya tampil di layar) -->
+        <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+            <a href="{% url 'gate_in' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Gate In
+            </a>
+            <div class="d-flex gap-2">
+                <a href="{% url 'queue_detail' queue.pk %}" class="btn btn-outline-info btn-sm">
+                    <i class="bi bi-info-circle me-1"></i> Detail Antrian
+                </a>
+                <a href="{% url 'queue_list' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-list-columns me-1"></i> Daftar Antrian
+                </a>
+                <button type="button" class="btn btn-primary btn-sm px-3 fw-bold" onclick="window.print();">
+                    <i class="bi bi-printer-fill me-1"></i> Cetak Tiket (Print)
+                </button>
+            </div>
+        </div>
+
+        <!-- Kartu Tiket Cetak -->
+        <div class="ticket-container">
+            <!-- Kop Tiket -->
+            <div class="ticket-header">
+                <div class="text-uppercase fw-bold tracking-widest text-info" style="font-size: 0.8rem; letter-spacing: 0.15em;">
+                    {{ terminal_name }}
+                </div>
+                <div class="small text-light text-opacity-75 mb-1">{{ terminal_sub }}</div>
+                <h2 class="h5 fw-bold text-white mb-0 text-uppercase tracking-tight">
+                    TIKET MASUK GATE & EIR (EQUIPMENT INTERCHANGE RECEIPT)
+                </h2>
+            </div>
+
+            <div class="p-3 p-md-4">
+
+                <!-- Nomor Antrian Utama -->
+                <div class="ticket-queue-box mb-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+                    <div>
+                        <span class="text-secondary small fw-semibold text-uppercase d-block" style="letter-spacing: 0.05em;">Nomor Antrian Masuk</span>
+                        <div class="display-6 fw-bold text-primary font-monospace">{{ queue.no_antrian }}</div>
+                    </div>
+                    <div class="text-sm-end">
+                        <span class="badge {% if queue.status == 'TERTAHAN' %}bg-warning text-dark{% else %}bg-success{% endif %} fs-6 px-3 py-1 mb-1">
+                            {{ queue.get_status_display }}
+                        </span>
+                        <div class="small text-muted font-monospace">{{ queue.waktu_masuk|date:"d/m/Y H:i:s" }} WIB</div>
+                    </div>
+                </div>
+
+                <!-- Tabel Detail Tiket -->
+                <div class="table-responsive mb-3">
+                    <table class="table table-bordered table-sm table-ticket mb-0">
+                        <tbody>
+                            <!-- Identitas Armada -->
+                            <tr class="table-light">
+                                <th colspan="2" class="fw-bold text-dark text-uppercase">
+                                    <i class="bi bi-truck me-1 text-primary"></i> Identitas Armada & Pengemudi
+                                </th>
+                            </tr>
+                            <tr>
+                                <th>Nomor Polisi</th>
+                                <td class="fw-bold font-monospace fs-6">{{ queue.truck.no_polisi }}</td>
+                            </tr>
+                            <tr>
+                                <th>Pengemudi</th>
+                                <td>{{ queue.driver.nama }} (SIM: <span class="font-monospace">{{ queue.driver.no_sim }}</span>, HP: {{ queue.driver.no_hp }})</td>
+                            </tr>
+                            <tr>
+                                <th>Perusahaan Ekspedisi</th>
+                                <td>{{ queue.truck.expedisi.nama_perusahaan }}</td>
+                            </tr>
+                            <tr>
+                                <th>Konfigurasi Truk</th>
+                                <td>{{ queue.truck.get_konfigurasi_display }}</td>
+                            </tr>
+
+                            <!-- Kontainer & Muatan -->
+                            <tr class="table-light">
+                                <th colspan="2" class="fw-bold text-dark text-uppercase">
+                                    <i class="bi bi-box-seam me-1 text-primary"></i> Peti Kemas & Dokumen Muatan
+                                </th>
+                            </tr>
+                            {% if queue.container %}
+                                <tr>
+                                    <th>Nomor Kontainer</th>
+                                    <td class="fw-bold font-monospace fs-6 text-primary">{{ queue.container.no_kontainer }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Ukuran / Tipe</th>
+                                    <td>{{ queue.container.get_ukuran_display }} / {{ queue.container.get_tipe_display }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Kategori Muatan</th>
+                                    <td><span class="badge bg-secondary">{{ queue.container.get_kategori_display }}</span></td>
+                                </tr>
+                                <tr>
+                                    <th>Berat Kotor (Gross)</th>
+                                    <td class="font-monospace fw-semibold">{{ queue.container.berat_kotor }} kg (Status VGM: {{ queue.container.status_vgm }})</td>
+                                </tr>
+                                <tr>
+                                    <th>Shipping Line / Pelayaran</th>
+                                    <td>{{ queue.container.shipping_line|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Nomor Segel (Seal)</th>
+                                    <td class="font-monospace">{{ queue.container.seal_number|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <th>No. Dokumen (DO/SPPB)</th>
+                                    <td class="font-monospace">{{ queue.container.ref_dokumen|default:"-" }}</td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <th>Status Kontainer</th>
+                                    <td class="text-muted fst-italic">Truk masuk tanpa kontainer (Chassis Kosong / Head Truck Only).</td>
+                                </tr>
+                            {% endif %}
+
+                            <!-- Alokasi Lapangan -->
+                            <tr class="table-light">
+                                <th colspan="2" class="fw-bold text-dark text-uppercase">
+                                    <i class="bi bi-geo-alt me-1 text-primary"></i> Instruksi Alokasi Lapangan (Yard Direction)
+                                </th>
+                            </tr>
+                            <tr>
+                                <th>Blok Penumpukan</th>
+                                <td class="fw-bold text-success font-monospace fs-6">
+                                    {{ queue.alokasi_blok|default:"BUFFER GATE (PENDING YARD ASSIGNMENT)" }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Posisi Slot (Bay / Row / Tier)</th>
+                                <td class="font-monospace">
+                                    BAY: <strong>{{ queue.alokasi_bay|default:"-" }}</strong> &bull; 
+                                    ROW: <strong>{{ queue.alokasi_row|default:"-" }}</strong> &bull; 
+                                    TIER: <strong>{{ queue.alokasi_tier|default:"-" }}</strong>
+                                </td>
+                            </tr>
+
+                            <!-- Info Gerbang & Petugas -->
+                            <tr class="table-light">
+                                <th colspan="2" class="fw-bold text-dark text-uppercase">
+                                    <i class="bi bi-shield-check me-1 text-primary"></i> Data Pendaftaran Gerbang
+                                </th>
+                            </tr>
+                            <tr>
+                                <th>Jalur / Booth</th>
+                                <td>{{ queue.gerbang_lane }} &bull; {{ queue.booth }}</td>
+                            </tr>
+                            <tr>
+                                <th>Petugas Operator</th>
+                                <td>
+                                    {% if queue.operator %}
+                                        {{ queue.operator.get_full_name|default:queue.operator.username }}
+                                    {% else %}
+                                        System Operator
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% if queue.alasan_tertahan %}
+                            <tr class="table-warning">
+                                <th class="text-danger">Alasan Tertahan (Hold)</th>
+                                <td class="text-danger fw-bold">{{ queue.alasan_tertahan }}</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Barcode Simulasi -->
+                <div class="text-center py-2 border-top border-bottom bg-light">
+                    <div class="font-monospace small text-muted mb-1">* {{ queue.no_antrian }} *</div>
+                    <div class="ticket-barcode text-dark fw-bold font-monospace">|||| | |||||| | | |||| ||| ||||</div>
+                    <div class="small text-muted font-monospace" style="font-size: 0.72rem;">PINDAI KODE INI DI POS RTG CRANE / GATE OUT</div>
+                </div>
+
+                <!-- Ketentuan Terminal -->
+                <div class="mt-3 text-muted small" style="font-size: 0.72rem; line-height: 1.4;">
+                    <ul class="ps-3 mb-0">
+                        <li>Batas kecepatan maksimal kendaraan di dalam area pelabuhan adalah <strong>20 km/jam</strong>.</li>
+                        <li>Pengemudi wajib mengenakan <strong>helm keselamatan (safety helmet)</strong> dan <strong>rompi reflektif</strong>.</li>
+                        <li>Simpan tiket ini dengan baik hingga proses pemeriksaan di Gate Out (keluar terminal) selesai.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('print') === '1' || urlParams.get('print') === 'true' || urlParams.has('print')) {
+        // Beri sedikit jeda agar DOM, font, dan stylesheet selesai dirender sebelum browser print dialog terbuka
+        setTimeout(function() {
+            window.print();
+        }, 350);
+    }
+});
+</script>
+{% endblock %}
